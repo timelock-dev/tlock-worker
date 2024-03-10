@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en" class="h-100" data-bs-theme="auto">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Timelock Encryption: Send a secret into the future</title>
+	<meta name="description" content="Timelock Encryption is a digital time capsule. Securely encryption a message until a specific time in the future.">
+
+	<!-- CSS -->
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+	<!-- Favicons -->
+	<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔒</text></svg>">
+
+	<!-- Google tag (gtag.js) -->
+	<script async src="https://www.googletagmanager.com/gtag/js?id=G-40THS9L2JY"></script>
+	<script>
+		window.dataLayer = window.dataLayer || [];
+		function gtag(){dataLayer.push(arguments);}
+		gtag('js', new Date());
+
+		gtag('config', 'G-40THS9L2JY');
+	</script>
+</head>
+
+<body class="d-flex flex-column h-100">
+	<nav class="navbar navbar-expand-md navbar-dark bg-dark">
+		<div class="container">
+			<a class="navbar-brand" href="/">🔒 TimeLock.dev</a>
+			<button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navControls" aria-controls="navControls" aria-expanded="false" aria-label="Toggle navigation">
+				<span class="navbar-toggler-icon"></span>
+			</button>
+
+			<div class="collapse navbar-collapse" id="navControls">
+				<ul class="navbar-nav me-auto mb-0">
+					<li class="nav-item">
+						<a class="nav-link" href="#encrypt">Encrypt</a>
+					</li>
+					<li class="nav-item">
+						<a class="nav-link" href="#decrypt">Decrypt</a>
+					</li>
+				</ul>
+				<ul class="navbar-nav mb-0">
+					<li class="nav-item">
+						<a class="nav-link" href="https://github.com/timelock-dev/tlock-worker" target="_blank"> <i class="fa-brands fa-github"></i> Github</a>
+					</li>
+				</ul>
+			</div>
+		</div>
+	</nav>
+	<main class="flex-shrink-0">
+		<div class="bg-light">
+			<div class="container">
+				<div class="py-4">
+					<h1>Timelock Encryption</h1>
+					<p class="fs-5 text-muted mb-0">Send secrets into the future...</p>
+				</div>
+			</div>
+		</div>
+
+		<div class="container mt-4">
+
+			<div class="row mb-4">
+				<div class="col-md-6" id="encrypt">
+					<div class="card h-100">
+						<div class="card-header">
+							<h2 class="fs-4 mb-0">Encrypt</h2>
+						</div>
+						<div class="card-body">
+							<form id="encryptForm">
+								<div class="mb-3">
+									<label for="seconds" class="form-label">
+										How many seconds to encrypt?
+										<span role="button" class="text-primary" data-toggle="tooltip" data-placement="top" title="After encryption this how long until the message can be decrypted. Encryption and decryption both happen quickly. A new round is published every 3 seconds. Your input will be rounded as needed."><i class="fa-solid fa-circle-question"></i></span>
+									</label>
+									<input type="number" class="form-control" id="seconds" name="seconds" value="300" min="3" required aria-describedby="secondsHelp">
+									<div id="secondsHelp" class="form-text">Encrypt message until <span class="encryptUntilDynamic"></span>.</div>
+								</div>
+								<div class="mb-3">
+									<label for="message" class="form-label">Message</label>
+									<textarea class="form-control form-control-sm" id="message" name="message" rows="3" required></textarea>
+								</div>
+								<button type="submit" class="btn btn-primary">Encrypt</button>
+							</form>
+						</div>
+					</div>
+
+				</div>
+				<div class="col-md-6">
+					<div class="card h-100" id="decrypt">
+						<div class="card-header">
+							<h2 class="fs-4 mb-0">Decrypt</h2>
+						</div>
+						<div class="card-body">
+							<form id="decryptForm">
+								<div class="mb-3">
+									<label for="decryptMessage" class="form-label">Message</label>
+									<textarea class="form-control form-control-sm" id="decryptMessage" name="decryptMessage" rows="3" required></textarea>
+								</div>
+								<button type="submit" class="btn btn-primary">Decrypt</button>
+							</form>
+						</div>
+
+					</div>
+				</div>
+			</div>
+
+			<h3 class="mt-5">About</h3>
+			<p>
+				Timelock encryption is a system that allows you to encrypt a message until a specific time in the future.
+				This can be thought of as a "digital time capsule."
+				This website is simply an interface for a timelock encryption system implemented by <a href="https://www.cloudflare.com/" target="_blank">Cloudflare</a> and the <a href="https://en.wikipedia.org/wiki/League_of_Entropy" target="_blank">League of Entropy</a>.
+			</p>
+			<p>
+				If you have an important message to encrypt, you should <a href="https://github.com/timelock-dev/tlock-worker" target="_blank">encrypt your message locally</a> and carefully consider the <a href="https://drand.love/docs/timelock-encryption/#%E2%9A%A0%EF%B8%8F-security-assumptions-%E2%9A%A0%EF%B8%8F" target=_blank>limitations of this system</a>.
+			</p>
+
+			<h3>How it works?</h3>
+
+			<p>
+				A group of trusted, geographically distributed organizations holds the keys.
+				There are 18 separate organizations running a total of 22 nodes, with a threshold of 12 needed to release a secret.
+				This eliminates any single point of failure and creates an extremely robust system by relying on independent organizations with no reason to collude.
+			</p>
+
+			<h3>More Reading:</h3>
+			<ul class="mb-5">
+				<li><a target="_blank" id="limitations" href="https://drand.love/docs/timelock-encryption/#%E2%9A%A0%EF%B8%8F-security-assumptions-%E2%9A%A0%EF%B8%8F">Limitations</a></li>
+				<li><a target="_blank" href="https://drand.love/docs/timelock-encryption/#use-cases">Use Cases</a></li>
+				<li><a target="_blank" href="https://en.wikipedia.org/wiki/League_of_Entropy">League of Entropy</a></li>
+				<li><a target="_blank" href="https://drand.love/docs/timelock-encryption">drand.love</a></li>
+				<li><a target="_blank" href="https://gwern.net/self-decrypting">Gwern on Timelock Encryption</a></li>
+				<li><a target="_blank" href="https://people.csail.mit.edu/rivest/pubs/RSW96.pdf">Ronald L. Rivest, Adi Shamir, and David A. Wagner</a></li>
+				<li><a target="_blank" href="https://blog.cloudflare.com/harnessing-office-chaos#timelock-encryption">Cloudflare Randomness</a></li>
+				<li><a target="_blank" href="https://www.eecs.harvard.edu/~cat/tlc.pdf">Time-Lapse Cryptography</a></li>
+				<li><a target="_blank" href="https://sarcophagus.io/">Sarcophagus Smart Contract</a></li>
+			</ul>
+		</div>
+	</main>
+
+	<footer class="footer mt-auto py-2 bg-body-tertiary">
+		<div class="container">
+			<div class="d-flex flex-wrap justify-content-between align-items-center">
+				<p class="col-md-4 mb-0 text-body-secondary">&copy; 2024 TimeLock.dev </p>
+				<a href="/" class="col-md-4 d-flex align-items-center justify-content-center mb-3 mb-md-0 me-md-auto link-body-emphasis text-decoration-none">💬 🔐 ⏱️ ⌛ 🔑 🔓</a>
+				<ul class="nav col-md-4 justify-content-end">
+					<li class="nav-item"><a href="https://twitter.com/_alanreed" target="_blank" class="nav-link px-2 text-body-secondary">@_alanreed</a></li>
+					<li class="nav-item"><a href="#encrypt" class="nav-link px-2 text-body-secondary">Encrypt</a></li>
+					<li class="nav-item"><a href="#decrypt" class="nav-link px-2 text-body-secondary">Decrypt</a></li>
+					<li class="nav-item"><a href="https://github.com/timelock-dev/tlock-worker" target="_blank" class="nav-link px-2 text-body-secondary"> <i class="fa-brands fa-github"></i> Github</a></li>
+				</ul>
+			</div>
+		</div>
+	</footer>
+
+	<!-- Encrypt Modal -->
+	<div class="modal fade" id="encryptModal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content rounded-4 shadow">
+				<div class="modal-header border-bottom-0">
+					<h1 class="modal-title fs-5">Ciphertext</h1>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body py-0">
+				<p>This is your encrypted message. It cannot be decrypted until <b><span class="encryptUntil"></span></b>.</p>
+					<textarea id="encryptOutput" class="form-control form-control-sm font-monospace" rows=5 style=" white-space: pre; overflow-wrap: normal; overflow-x: scroll;" readonly onclick="copy('encryptOutput')"></textarea>
+				</div>
+				<div class="modal-footer flex-column align-items-stretch w-100 gap-2 pb-3 border-top-0">
+					<button type="button" class="btn btn-lg btn-primary" onclick="copy('encryptOutput')">Copy <i class="fa-solid fa-copy"></i></button>
+					<button type="button" class="btn btn-lg btn-secondary" data-bs-dismiss="modal">Close</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Decrypt Modal -->
+	<div class="modal fade" id="decryptModal" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content rounded-4 shadow">
+				<div class="modal-header border-bottom-0">
+					<h1 class="modal-title fs-5">Plaintext</h1>
+					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				</div>
+				<div class="modal-body py-0">
+				<p>Here is the decrypted messaged:</p>
+					<textarea id="decryptOutput" class="form-control form-control-sm font-monospace" rows=5 style=" white-space: pre; overflow-wrap: normal; overflow-x: scroll;" readonly onclick="copy('decryptOutput')"></textarea>
+				</div>
+				<div class="modal-footer flex-column align-items-stretch w-100 gap-2 pb-3 border-top-0">
+					<button type="button" class="btn btn-lg btn-primary" onclick="copy('decryptOutput')">Copy <i class="fa-solid fa-copy"></i></button>
+					<button type="button" class="btn btn-lg btn-secondary" data-bs-dismiss="modal">Close</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- SCRIPTS -->
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+	<script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+	<script>$(function () {$('[data-toggle="tooltip"]').tooltip()})</script>
+	<script>
+		setInterval(function() {
+			roundsCount = Math.floor($('#seconds').val() / 3)
+			encryptUntil = new Date()
+			encryptUntil.setSeconds(encryptUntil.getSeconds() + (roundsCount * 3))
+			$('.encryptUntilDynamic').html(encryptUntil.toLocaleString())
+		}, 1);
+
+		$('#encryptForm').submit(function(event) {
+			event.preventDefault()
+			$("#encryptForm :input").prop("disabled", true);
+			message = $('#message').val()
+			$('#message').val("")
+			// Get rounds
+			$.get("https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/public/latest")
+				.done(function(data) {
+					currentRound = data.round
+					roundsCount = Math.floor($('#seconds').val() / 3)
+					targetRound = currentRound + roundsCount
+					encryptUntil = new Date()
+					encryptUntil.setSeconds(encryptUntil.getSeconds() + (roundsCount * 3))
+					// encrypt message
+					$.post("/encrypt/"+targetRound, message)
+						.done(function(data) {
+							$('.encryptUntil').html(encryptUntil.toLocaleString())
+							$('#encryptOutput').html(data)
+							encryptModal = new bootstrap.Modal(document.getElementById('encryptModal'))
+							encryptModal.show()
+						})
+						.fail(function(xhr, textStatus, errorThrown) {
+							alert('Something went wrong. If this continues, please email contact@timelock.dev')
+						})
+						.always(function () {
+							$("#encryptForm :input").prop("disabled", false);
+						})
+				})
+				.fail(function(xhr, textStatus, errorThrown) {
+					alert('Something went wrong. If this continues, please email contact@timelock.dev')
+					$("#encryptForm :input").prop("disabled", false);
+				})
+		})
+
+		$('#decryptForm').submit(function(event) {
+			event.preventDefault()
+			$("#decryptForm :input").prop("disabled", true);
+			message = $('#decryptMessage').val()
+			$.post("/decrypt", message)
+				.done(function(data) {
+					$('#decryptOutput').html(data)
+					decryptModal = new bootstrap.Modal(document.getElementById('decryptModal'))
+					decryptModal.show()
+				})
+				.fail(function(xhr, textStatus, errorThrown) {
+					alert("Unable to decrypt. You might need to wait longer. That's all we know.")
+				})
+				.always(function () {
+					$("#decryptForm :input").prop("disabled", false);
+				})
+		})
+
+		function copy(id) {
+			target = document.getElementById(id);
+			target.focus();
+			target.select();
+			target.setSelectionRange(0, 99999);
+			navigator.clipboard.writeText(target.value);
+		}
+	</script>
+</body>
+</html>

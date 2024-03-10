@@ -17,14 +17,8 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
 
     let router = Router::new();
 
-    // Add as many routes as your Worker needs! Each route will get a `Request` for handling HTTP
-    // functionality and a `RouteContext` which you can use to  and get route parameters and
-    // Environment bindings like KV Stores, Durable Objects, Secrets, and Variables.
-    router
-        .get("/", |_, _| Response::ok("POST /encrypt/:round to encrypt to a specfic round on quicknet
-POST /decrypt to decrypt
-
-File should be under 10MiB in size"))
+    let mut response = router
+        .get("/", |_, _| Response::ok(include_str!("index.html")))
         .post_async("/encrypt/:round", |mut req, ctx| async move {
             let info: ChainInfo = Fetch::Url(Url::parse("https://drand.cloudflare.com/52db9ba70e0cc0f6eaf7803dd07447a1f5477735fd3f661792ba94600c84e971/info")?).send().await?.json().await?;
             let round = match ctx.param("round") {
@@ -66,5 +60,14 @@ File should be under 10MiB in size"))
             }
         })
         .run(req, env)
-        .await
+        .await?;
+
+        let mut headers = Headers::new();
+        let _ = headers.set("Access-Control-Allow-Origin", "*");
+        let _ = headers.set("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+        let _ = headers.set("Access-Control-Allow-Headers", "*");
+        let _ = headers.set("Access-Control-Allow-Credentials", "true");
+        response = response.with_headers(headers);
+
+    Ok(response)
 }

@@ -1,5 +1,7 @@
 # tlock-worker
 
+This fork adds a simple web interface.
+
 Demonstration worker supporting timelock encryption.
 
 ## Usage
