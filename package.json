@@ -22,8 +22,9 @@
 		"db:migrate:remote": "CI=true wrangler d1 migrations apply timelock-events --remote",
 		"cf-typegen": "wrangler types",
 		"deploy": "npm run db:migrate:remote && wrangler deploy",
-		"spellcheck": "cspell --no-progress \"src/**/*.{astro,ts,css}\" \"test/**/*.ts\" \"*.md\" \"migrations/*.sql\"",
-		"linkcheck": "linkinator http://127.0.0.1:4328/ --recurse --check-fragments"
+		"spellcheck": "cspell --no-progress \"src/**/*.{astro,ts,css}\" \"test/**/*.ts\" \"scripts/*.mjs\" \"*.md\" \"migrations/*.sql\"",
+		"linkcheck": "linkinator http://127.0.0.1:4328/ --recurse --check-fragments",
+		"check:html": "node scripts/check-html.mjs"
 	},
 	"dependencies": {
 		"@astrojs/cloudflare": "^14.4.2",

@@ -1,8 +1,20 @@
 {
 	"version": "0.2",
 	"language": "en",
-	"ignorePaths": ["node_modules", "dist", ".astro", ".wrangler", "package-lock.json", "worker-configuration.d.ts", "patches", "test/fixtures"],
-	"ignoreRegExpList": ["[0-9a-f]{64,}", "[A-Za-z0-9+/]{4,}={1,2}"],
+	"ignorePaths": [
+		"node_modules",
+		"dist",
+		".astro",
+		".wrangler",
+		"package-lock.json",
+		"worker-configuration.d.ts",
+		"patches",
+		"test/fixtures"
+	],
+	"ignoreRegExpList": [
+		"[0-9a-f]{64,}",
+		"[A-Za-z0-9+/]{4,}={1,2}"
+	],
 	"words": [
 		"alanreed",
 		"astrojs",
@@ -27,6 +39,12 @@
 		"linkcheck",
 		"spellcheck",
 		"Meunier",
-		"Thibault"
+		"Thibault",
+		"octicon",
+		"Octicons",
+		"blankslate",
+		"Kolkata",
+		"Lucide",
+		"nums"
 	]
 }
