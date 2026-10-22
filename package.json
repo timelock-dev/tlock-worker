@@ -19,9 +19,9 @@
 		"check": "astro check && tsc -p test/tsconfig.json",
 		"test": "vitest run",
 		"db:migrate:local": "wrangler d1 migrations apply timelock-events --local",
-		"db:migrate:remote": "wrangler d1 migrations apply timelock-events --remote",
+		"db:migrate:remote": "CI=true wrangler d1 migrations apply timelock-events --remote",
 		"cf-typegen": "wrangler types",
-		"deploy": "astro build && wrangler deploy",
+		"deploy": "npm run db:migrate:remote && wrangler deploy",
 		"spellcheck": "cspell --no-progress \"src/**/*.{astro,ts,css}\" \"test/**/*.ts\" \"*.md\" \"migrations/*.sql\"",
 		"linkcheck": "linkinator http://127.0.0.1:4328/ --recurse --check-fragments"
 	},

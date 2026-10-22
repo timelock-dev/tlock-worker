@@ -50,7 +50,8 @@ npm run db:migrate:remote                     # creates the events table
 Then, for each release:
 
 ```sh
-npm run deploy                                # astro build && wrangler deploy
+npm run build                                 # astro build; this is the Cloudflare build command
+npm run deploy                                # remote D1 migrations, then wrangler deploy
 ```
 
 The app needs no secrets or environment variables. If D1 is missing or its migration hasn't been applied, encryption and decryption keep working and the feed shows as unavailable.
