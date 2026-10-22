@@ -31,14 +31,16 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 		<meta property="og:description" content={description} />
 		<meta property="og:type" content="website" />
 		<meta property="og:url" content={canonical} />
-		<meta name="theme-color" content="#12110f" media="(prefers-color-scheme: dark)" />
-		<meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#ffffff" />
 	</head>
 	<body>
 		<header class="site-header">
 			<div class="container header-inner">
 				<a class="brand" href="/" aria-label="timelock.dev home">
-					<span aria-hidden="true">⏳</span> timelock<span class="muted">.dev</span>
+					<svg class="mark" viewBox="0 0 32 32" width="16" height="16" aria-hidden="true">
+						<path d="M10 7h12M10 25h12M11 7c0 5 10 6 10 9s-10 4-10 9M21 7c0 5-10 6-10 9s10 4 10 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square"></path>
+					</svg>
+					timelock<span class="muted">.dev</span>
 				</a>
 				<nav aria-label="Main">
 					{
@@ -79,48 +81,56 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.5rem 1.5rem;
-		padding-top: 0.85rem;
-		padding-bottom: 0.85rem;
+		gap: 4px 16px;
+		padding-top: 8px;
+		padding-bottom: 8px;
 	}
 	.brand {
-		font-weight: 700;
-		font-size: 1.05rem;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		font-weight: 600;
+		font-size: 14px;
 		color: var(--text);
 		text-decoration: none;
+	}
+	.mark {
+		color: var(--accent);
+		flex: none;
 	}
 	nav {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.25rem 1.1rem;
-		font-size: 0.9rem;
+		gap: 2px 12px;
+		font-size: 14px;
 	}
 	nav a {
-		color: var(--muted);
+		color: var(--text);
 		text-decoration: none;
 	}
-	nav a:hover,
+	nav a:hover {
+		color: var(--link);
+		text-decoration: none;
+	}
 	nav a[aria-current="page"] {
-		color: var(--text);
-		text-decoration: underline;
-		text-decoration-color: var(--accent);
+		font-weight: 600;
 	}
 	main {
 		flex: 1;
-		padding: 2rem 0 3rem;
+		padding: 16px 0 32px;
 	}
 	.site-footer {
 		border-top: 1px solid var(--border);
-		font-size: 0.8rem;
+		font-size: 12px;
 		color: var(--muted);
 	}
 	.footer-inner {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: space-between;
-		gap: 0.5rem 1rem;
-		padding-top: 1rem;
-		padding-bottom: 1rem;
+		gap: 8px 16px;
+		padding-top: 12px;
+		padding-bottom: 12px;
 	}
 	.footer-links {
 		display: flex;
@@ -128,6 +138,6 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 		gap: 1rem;
 	}
 	.site-footer a {
-		color: var(--muted);
+		color: var(--link);
 	}
 </style>
