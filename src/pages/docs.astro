@@ -1,0 +1,192 @@
+---
+import Base from "../layouts/Base.astro";
+import { LIMITS } from "../lib/api";
+import { QUICKNET, roundForTime, roundTime } from "../lib/drand";
+
+const exRound = roundForTime(Date.parse("2026-10-22T01:05:03Z"));
+const exUnlock = new Date(roundTime(exRound)).toISOString();
+const exUnix = roundTime(exRound) / 1000;
+const kib = (n: number) => `${(n / 1024).toLocaleString("en-US")} KiB`;
+const mib = (n: number) => `${n / 1024 / 1024} MiB`;
+const errors: [number, string, string][] = [
+	[400, "invalid_json", "Body isn't a JSON object."],
+	[400, "invalid_request", "A field is missing or invalid; `message` says which."],
+	[403, "forbidden", "Cross-origin call to an endpoint reserved for the website."],
+	[405, "method_not_allowed", "Wrong HTTP method."],
+	[413, "payload_too_large", "Body or plaintext over the limit; includes `limitBytes`."],
+	[422, "invalid_ciphertext", "Not a tlock age ciphertext, or it's corrupted."],
+	[422, "unsupported_chain", "Ciphertext was made for a drand chain other than quicknet."],
+	[425, "too_early", "Unlock round not reached yet; includes `round`, `unlockAt`, `unlockAtUnix`."],
+	[500, "internal_error", "Unexpected server error."],
+	[502, "drand_unavailable", "No drand relay answered. Retry with backoff."],
+	[503, "feed_unavailable", "The activity feed database isn't configured."],
+];
+---
+
+<Base title="API · timelock.dev" description="JSON API for timelock encryption: encrypt and decrypt messages tied to drand quicknet rounds. Includes curl examples, schemas, errors and limits.">
+	<div class="container narrow prose">
+		<h1>API</h1>
+		<p class="muted">
+			Base URL <code>https://timelock.dev</code>. No authentication. CORS is open (<code>Access-Control-Allow-Origin: *</code>), so you can call it
+			from any site.
+		</p>
+
+		<div class="callout small">
+			<strong>The server sees your plaintext.</strong> These endpoints encrypt and decrypt on our Worker, so the plaintext passes through it in
+			memory. It's never logged or stored, but you have to trust that. For anything sensitive, use the
+			<a href="/">website</a> (encrypts in your browser) or a <a href="/how-it-works#cli">local CLI</a>. Both produce identical, interchangeable
+			ciphertext.
+		</div>
+
+		<nav aria-label="Endpoints" class="small">
+			<ul>
+				<li><a href="#encrypt"><code>POST /api/encrypt</code></a>: encrypt to a duration, date or round</li>
+				<li><a href="#decrypt"><code>POST /api/decrypt</code></a>: decrypt once the round is reached</li>
+				<li><a href="#events"><code>GET /api/events</code></a>: the public activity feed</li>
+				<li><a href="#legacy"><code>POST /encrypt/:round</code> and <code>POST /decrypt</code></a>: original raw-bytes endpoints</li>
+				<li><a href="#errors">Errors</a> · <a href="#limits">Limits</a></li>
+			</ul>
+		</nav>
+
+		<h2 id="encrypt">POST /api/encrypt</h2>
+		<p>Encrypts a message so it can only be decrypted at or after a drand quicknet round. Give exactly one of <code>duration</code>, <code>unlockAt</code> or <code>round</code>.</p>
+		<pre><code>curl -s https://timelock.dev/api/encrypt \
+  -H 'Content-Type: application/json' \
+  -d '&#123;"plaintext": "hello, future", "duration": "5m"&#125;'</code></pre>
+
+		<h3>Request body</h3>
+		<div class="table-wrap">
+			<table>
+				<thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+				<tbody>
+					<tr><td><code>plaintext</code></td><td>string, required</td><td>The message. Up to {kib(LIMITS.plaintextBytes)} after decoding.</td></tr>
+					<tr><td><code>encoding</code></td><td><code>"utf8"</code> | <code>"base64"</code></td><td>How <code>plaintext</code> is encoded. Default <code>"utf8"</code>. Use base64 for binary data.</td></tr>
+					<tr><td><code>duration</code></td><td>number | string</td><td>Seconds from now (<code>300</code>) or a duration string: <code>"90s"</code>, <code>"15m"</code>, <code>"2h30m"</code>, <code>"3 days 6 hours"</code>. Units: s, m, h, d, w, y (365 days).</td></tr>
+					<tr><td><code>unlockAt</code></td><td>number | string</td><td>Unix seconds, or ISO 8601 with a time zone: <code>"2030-01-01T00:00:00Z"</code>, <code>"2030-01-01T09:00:00+09:00"</code>. Must be in the future.</td></tr>
+					<tr><td><code>round</code></td><td>integer</td><td>An exact quicknet round. Past rounds are allowed; the result is decryptable immediately.</td></tr>
+				</tbody>
+			</table>
+		</div>
+		<p class="small muted">Times are rounded <em>up</em> to the next round (one every {QUICKNET.period} seconds), so <code>unlockAt</code> in the response can be up to {QUICKNET.period} s later than requested. The maximum is {LIMITS.maxUnlockSeconds / (365 * 86400)} years ahead.</p>
+
+		<h3>Response <code>200</code></h3>
+		<pre><code>&#123;
+  "ciphertext": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IHRsb2Nr…\n-----END AGE ENCRYPTED FILE-----\n",
+  "round": {exRound},
+  "unlockAt": "{exUnlock}",
+  "unlockAtUnix": {exUnix},
+  "chainHash": "{QUICKNET.hash}",
+  "network": "quicknet"
+&#125;</code></pre>
+
+		<h3>More examples</h3>
+		<pre><code># unlock at a specific moment
+curl -s https://timelock.dev/api/encrypt \
+  -d '&#123;"plaintext": "Happy new year!", "unlockAt": "2030-01-01T00:00:00Z"&#125;'
+
+# binary data, ciphertext saved to a file (needs jq)
+curl -s https://timelock.dev/api/encrypt \
+  -d "&#123;\"plaintext\": \"$(base64 -w0 photo.jpg)\", \"encoding\": \"base64\", \"duration\": \"30d\"&#125;" \
+  | jq -r .ciphertext > photo.jpg.age</code></pre>
+
+		<h2 id="decrypt">POST /api/decrypt</h2>
+		<p>Decrypts a ciphertext once its round has been published. Accepts anything produced by this site, the API, <code>dee</code>, <code>tlock</code> or <code>tlock-js</code> for quicknet (armored form).</p>
+		<pre><code>curl -s https://timelock.dev/api/decrypt \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -Rs '&#123;ciphertext: .&#125;' message.age)"</code></pre>
+		<h3>Request body</h3>
+		<div class="table-wrap">
+			<table>
+				<thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+				<tbody>
+					<tr><td><code>ciphertext</code></td><td>string, required</td><td>Armored age text, <code>-----BEGIN AGE ENCRYPTED FILE-----</code> … <code>-----END AGE ENCRYPTED FILE-----</code>.</td></tr>
+					<tr><td><code>encoding</code></td><td><code>"base64"</code></td><td>Optional. Force base64 output even when the plaintext is valid UTF-8.</td></tr>
+				</tbody>
+			</table>
+		</div>
+		<h3>Response <code>200</code></h3>
+		<pre><code>&#123;
+  "plaintext": "hello, future",
+  "encoding": "utf8",
+  "round": {exRound},
+  "unlockAt": "{exUnlock}",
+  "unlockAtUnix": {exUnix}
+&#125;</code></pre>
+		<p class="small">Plaintext that isn't valid UTF-8 comes back as base64 with <code>"encoding": "base64"</code>.</p>
+		<h3>Too early: <code>425</code></h3>
+		<pre><code>&#123;
+  "error": &#123;
+    "code": "too_early",
+    "message": "Too early: this message unlocks at drand round {exRound} ({exUnlock}).",
+    "round": {exRound},
+    "unlockAt": "{exUnlock}",
+    "unlockAtUnix": {exUnix}
+  &#125;
+&#125;</code></pre>
+
+		<h2 id="events">GET /api/events</h2>
+		<p>The public activity feed, newest first. It contains no message content, ciphertext or IP addresses.</p>
+		<pre><code>curl -s 'https://timelock.dev/api/events?limit=2'</code></pre>
+		<div class="table-wrap">
+			<table>
+				<thead><tr><th>Query</th><th>Description</th></tr></thead>
+				<tbody>
+					<tr><td><code>limit</code></td><td>1 to {LIMITS.feedPageSize}, default 20.</td></tr>
+					<tr><td><code>before</code></td><td>Return events with an id lower than this (pagination: pass the previous <code>nextBefore</code>).</td></tr>
+				</tbody>
+			</table>
+		</div>
+		<pre><code>&#123;
+  "events": [
+    &#123;
+      "id": 42,
+      "type": "decrypt",
+      "source": "api",
+      "createdAt": "2026-10-22T01:06:10.512Z",
+      "round": {exRound},
+      "unlockAt": "{exUnlock}"
+    &#125;,
+    &#123;
+      "id": 41,
+      "type": "encrypt",
+      "source": "web",
+      "createdAt": "2026-10-22T01:00:01.204Z",
+      "round": {exRound},
+      "unlockAt": "{exUnlock}"
+    &#125;
+  ],
+  "nextBefore": 41
+&#125;</code></pre>
+		<p class="small"><code>source</code> is <code>"web"</code> (browser-side, reported by the website after the fact) or <code>"api"</code> (recorded by the server). <code>nextBefore</code> is <code>null</code> on the last page. Responses may be cached for 5 seconds. <code>POST /api/events</code> is used by the website itself and only accepts same-origin requests.</p>
+
+		<h2 id="legacy">Original endpoints</h2>
+		<p>The endpoints of the original Rust worker still work unchanged for existing scripts: raw bytes in, raw bytes out, no JSON. Uploads can be up to {mib(LIMITS.legacyBodyBytes)}.</p>
+		<h3>POST /encrypt/:round</h3>
+		<p>Body: the raw plaintext (any bytes). Response: armored age ciphertext (<code>Content-Type: application/octet-stream</code>). Look up the round for a time with <code>/api/encrypt</code> or <code>dee</code>.</p>
+		<pre><code>curl -s -X POST --data-binary @original.png https://timelock.dev/encrypt/{exRound} > encrypted.age</code></pre>
+		<h3>POST /decrypt</h3>
+		<p>Body: armored <em>or</em> binary age ciphertext. Response: the raw plaintext bytes.</p>
+		<pre><code>curl -s -X POST --data-binary @encrypted.age https://timelock.dev/decrypt > decrypted.png</code></pre>
+		<p class="small">Errors on these endpoints are plain text with the HTTP status codes listed below (for example <code>425</code> when it's too early).</p>
+
+		<h2 id="errors">Errors</h2>
+		<p>JSON endpoints return <code>&#123;"error": &#123;"code": "…", "message": "…"&#125;&#125;</code> with extra fields where noted.</p>
+		<div class="table-wrap">
+			<table>
+				<thead><tr><th>Status</th><th>Code</th><th>Meaning</th></tr></thead>
+				<tbody>
+					{errors.map(([status, code, meaning]) => <tr><td>{status}</td><td><code>{code}</code></td><td>{meaning}</td></tr>)}
+				</tbody>
+			</table>
+		</div>
+
+		<h2 id="limits">Limits</h2>
+		<ul>
+			<li>JSON plaintext: {kib(LIMITS.plaintextBytes)} after decoding; JSON request body: {kib(LIMITS.jsonBodyBytes)}.</li>
+			<li>Original endpoints: {mib(LIMITS.legacyBodyBytes)} per request. For larger files, encrypt locally with <code>dee</code>; there's no size limit there.</li>
+			<li>Unlock time: up to {LIMITS.maxUnlockSeconds / (365 * 86400)} years ahead, at {QUICKNET.period}-second granularity.</li>
+			<li>Network: drand quicknet only, chain hash <code>{QUICKNET.hash}</code>.</li>
+			<li>Cloudflare may rate-limit abusive traffic. Please back off on <code>502</code>.</li>
+		</ul>
+	</div>
+</Base>

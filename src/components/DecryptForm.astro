@@ -1,0 +1,125 @@
+<section class="card" id="decrypt" aria-labelledby="decrypt-title">
+	<h2 id="decrypt-title">Decrypt</h2>
+	<form id="decrypt-form" novalidate>
+		<div class="field">
+			<label for="decrypt-input">Time-locked message</label>
+			<textarea id="decrypt-input" class="code" rows="7" required spellcheck="false" placeholder="-----BEGIN AGE ENCRYPTED FILE-----&#10;…&#10;-----END AGE ENCRYPTED FILE-----"></textarea>
+		</div>
+		<p class="status" data-status hidden aria-live="polite"></p>
+		<div class="row">
+			<button class="btn" type="submit">Decrypt</button>
+			<span class="hint">Fetches one public drand signature; the message stays in your browser.</span>
+		</div>
+	</form>
+
+	<div data-output hidden>
+		<h3>Plaintext</h3>
+		<pre data-plaintext></pre>
+		<div class="row">
+			<button class="btn" type="button" data-copy>Copy</button>
+			<button class="btn secondary" type="button" data-download hidden>Download file</button>
+		</div>
+	</div>
+</section>
+
+<script>
+	import { createDrandClient, DrandUnavailableError } from "../lib/drand";
+	import { decrypt, inspectCiphertext, InvalidCiphertextError, TooEarlyError, UnsupportedChainError, type CiphertextInfo } from "../lib/tlock";
+	import { formatCountdown, formatLocal, formatRelative, formatUtc } from "../lib/time";
+	import { reportEvent } from "../scripts/report";
+
+	const section = document.querySelector<HTMLElement>("#decrypt")!;
+	const $ = <T extends HTMLElement>(sel: string) => section.querySelector<T>(sel)!;
+	const form = $<HTMLFormElement>("#decrypt-form");
+	const input = $<HTMLTextAreaElement>("#decrypt-input");
+	const status = $("[data-status]");
+	const output = $("[data-output]");
+	const client = createDrandClient();
+	let info: CiphertextInfo | null = null;
+	let plaintext: Uint8Array | null = null;
+
+	function show(kind: "" | "ok" | "err" | "locked", text: string) {
+		status.className = `status ${kind}`.trim();
+		status.textContent = text;
+		status.hidden = !text;
+	}
+
+	function renderInfo() {
+		if (!info) return;
+		const when = `${formatLocal(info.unlockAt)} · ${formatUtc(info.unlockAt)}`;
+		const left = (info.unlockAt - Date.now()) / 1000;
+		if (left > 0) show("locked", `Locked until ${when}. Opens in ${formatCountdown(left)} (drand round #${info.round.toLocaleString("en-US")}).`);
+		else show("ok", `Unlocked since ${when} (${formatRelative(info.unlockAt)}). Ready to decrypt.`);
+	}
+
+	function inspect() {
+		output.hidden = true;
+		const text = input.value.trim();
+		info = null;
+		if (!text) return show("", "");
+		try {
+			info = inspectCiphertext(text);
+			renderInfo();
+		} catch (err) {
+			show("err", err instanceof Error ? err.message : String(err));
+		}
+	}
+
+	input.addEventListener("input", inspect);
+	window.addEventListener("timelock:decrypt", (e) => {
+		input.value = (e as CustomEvent<string>).detail;
+		inspect();
+		section.scrollIntoView({ behavior: "smooth", block: "start" });
+	});
+
+	form.addEventListener("submit", async (event) => {
+		event.preventDefault();
+		if (!input.value.trim()) return show("err", "Paste a time-locked message first.");
+		const button = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+		button.disabled = true;
+		button.textContent = "Decrypting…";
+		try {
+			const result = await decrypt(input.value, client);
+			plaintext = result.plaintext;
+			let text: string | null = null;
+			try {
+				text = new TextDecoder("utf-8", { fatal: true }).decode(plaintext);
+			} catch {
+				text = null;
+			}
+			$("[data-plaintext]").textContent = text ?? `Binary content (${plaintext.byteLength.toLocaleString("en-US")} bytes). Use “Download file”.`;
+			$("[data-copy]").hidden = text === null;
+			$("[data-download]").hidden = text !== null;
+			output.hidden = false;
+			show("ok", "Decrypted.");
+			reportEvent("decrypt", result.info.round);
+		} catch (err) {
+			if (err instanceof TooEarlyError) renderInfo();
+			else if (err instanceof DrandUnavailableError) show("err", "Couldn't reach the drand network to fetch the round signature. Try again in a moment.");
+			else if (err instanceof InvalidCiphertextError || err instanceof UnsupportedChainError) show("err", err.message);
+			else show("err", `Decryption failed: ${err instanceof Error ? err.message : String(err)}`);
+		} finally {
+			button.disabled = false;
+			button.textContent = "Decrypt";
+		}
+	});
+
+	$("[data-copy]").addEventListener("click", async (e) => {
+		await navigator.clipboard.writeText($("[data-plaintext]").textContent ?? "");
+		const b = e.currentTarget as HTMLButtonElement;
+		b.textContent = "Copied";
+		setTimeout(() => (b.textContent = "Copy"), 1500);
+	});
+	$("[data-download]").addEventListener("click", () => {
+		if (!plaintext) return;
+		const a = document.createElement("a");
+		a.href = URL.createObjectURL(new Blob([plaintext as BlobPart]));
+		a.download = "timelock-decrypted.bin";
+		a.click();
+		URL.revokeObjectURL(a.href);
+	});
+
+	setInterval(() => {
+		if (info && output.hidden && !status.classList.contains("err")) renderInfo();
+	}, 1000);
+</script>

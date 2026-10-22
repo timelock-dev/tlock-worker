@@ -1,0 +1,243 @@
+---
+const presets: [seconds: number, label: string][] = [
+	[300, "5 min"],
+	[900, "15 min"],
+	[3600, "1 hour"],
+	[6 * 3600, "6 hours"],
+	[86400, "1 day"],
+	[7 * 86400, "1 week"],
+	[30 * 86400, "30 days"],
+	[365 * 86400, "1 year"],
+];
+---
+
+<section class="card" id="encrypt" aria-labelledby="encrypt-title">
+	<h2 id="encrypt-title">Encrypt</h2>
+	<form id="encrypt-form" novalidate>
+		<div class="field">
+			<label for="message">Message</label>
+			<textarea id="message" name="message" rows="4" required placeholder="Write something your future self (or someone else) should read later…"></textarea>
+		</div>
+
+		<fieldset class="field unlock">
+			<legend>Unlock after</legend>
+			<div class="tabs" role="tablist" aria-label="How to choose the unlock time">
+				<button type="button" role="tab" id="tab-duration" aria-selected="true" aria-controls="panel-duration" data-mode="duration">Duration</button>
+				<button type="button" role="tab" id="tab-date" aria-selected="false" aria-controls="panel-date" data-mode="date">Date &amp; time</button>
+			</div>
+
+			<div id="panel-duration" role="tabpanel" aria-labelledby="tab-duration">
+				<div class="chips" aria-label="Presets">
+					{
+						presets.map(([s, label]) => (
+							<button type="button" class="chip" data-seconds={s} aria-pressed={s === 300 ? "true" : "false"}>
+								{label}
+							</button>
+						))
+					}
+				</div>
+				<input type="text" id="duration" name="duration" value="5 minutes" autocomplete="off" spellcheck="false" aria-describedby="duration-hint" />
+				<p class="hint" id="duration-hint">Or type a duration: <code>90s</code>, <code>15m</code>, <code>2h30m</code>, <code>3 days 6 hours</code>.</p>
+			</div>
+
+			<div id="panel-date" role="tabpanel" aria-labelledby="tab-date" hidden>
+				<input type="datetime-local" id="unlock-date" name="unlock-date" aria-describedby="date-hint" />
+				<p class="hint" id="date-hint">In your time zone: <span data-tz>local time</span>.</p>
+			</div>
+		</fieldset>
+
+		<dl class="summary" aria-live="polite" data-summary>
+			<dt>Unlocks</dt>
+			<dd class="big" data-local>—</dd>
+			<dt>UTC</dt>
+			<dd data-utc>—</dd>
+			<dt>In</dt>
+			<dd data-duration>—</dd>
+			<dt>Round</dt>
+			<dd data-round>—</dd>
+		</dl>
+
+		<p class="status err" data-error hidden></p>
+
+		<div class="row">
+			<button class="btn" type="submit">Encrypt in your browser</button>
+			<span class="hint">Your message never leaves this page.</span>
+		</div>
+	</form>
+
+	<div data-result hidden>
+		<h3>Your time-locked message</h3>
+		<p class="status locked" data-result-status></p>
+		<label for="ciphertext" class="sr-only">Ciphertext</label>
+		<textarea id="ciphertext" class="code" rows="7" readonly></textarea>
+		<div class="row" style="margin-top: 0.75rem">
+			<button class="btn" type="button" data-copy>Copy</button>
+			<button class="btn secondary" type="button" data-download>Download .age</button>
+			<button class="btn secondary" type="button" data-to-decrypt>Open in Decrypt</button>
+			<button class="btn secondary" type="button" data-again>Encrypt another</button>
+		</div>
+		<p class="hint">Anyone with this text can read the message after the unlock time, and nobody can before it. Keep it somewhere safe; we don't store it.</p>
+	</div>
+</section>
+
+<style>
+	fieldset {
+		border: 0;
+		padding: 0;
+		margin: 0 0 1rem;
+		min-width: 0;
+	}
+	legend {
+		font-weight: 600;
+		margin-bottom: 0.35rem;
+		padding: 0;
+	}
+</style>
+
+<script>
+	import { createDrandClient, QUICKNET, roundForTime, roundTime } from "../lib/drand";
+	import { encrypt } from "../lib/tlock";
+	import { formatCountdown, formatDuration, formatLocal, formatUtc, parseDateTimeLocal, parseDuration, toDateTimeLocalValue } from "../lib/time";
+	import { reportEvent } from "../scripts/report";
+
+	const form = document.querySelector<HTMLFormElement>("#encrypt-form")!;
+	const section = document.querySelector<HTMLElement>("#encrypt")!;
+	const $ = <T extends HTMLElement>(sel: string) => section.querySelector<T>(sel)!;
+	const durationInput = $<HTMLInputElement>("#duration");
+	const dateInput = $<HTMLInputElement>("#unlock-date");
+	const errorBox = $("[data-error]");
+	const result = $("[data-result]");
+	const client = createDrandClient();
+	const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+	let mode: "duration" | "date" = "duration";
+	let lockedUntil = 0;
+
+	$("[data-tz]").textContent = timeZone;
+	dateInput.value = toDateTimeLocalValue(Math.ceil((Date.now() + 86400_000) / 3600_000) * 3600_000);
+
+	function target(now: number): { ms: number } | { error: string } {
+		if (mode === "duration") {
+			const seconds = parseDuration(durationInput.value);
+			if (seconds === null) return { error: "Enter a duration like 90s, 15m, 2h30m or 3 days." };
+			if (seconds > 100 * 365 * 86400) return { error: "The longest supported lock is 100 years." };
+			return { ms: now + seconds * 1000 };
+		}
+		const ms = parseDateTimeLocal(dateInput.value);
+		if (ms === null) return { error: "Pick a date and time." };
+		if (ms <= now) return { error: "Pick a moment in the future." };
+		return { ms };
+	}
+
+	function render() {
+		const now = Date.now();
+		const t = target(now);
+		const set = (sel: string, text: string) => ($(sel).textContent = text);
+		if ("error" in t) {
+			for (const sel of ["[data-local]", "[data-utc]", "[data-duration]", "[data-round]"]) set(sel, "—");
+			errorBox.textContent = t.error;
+			errorBox.hidden = false;
+			return;
+		}
+		errorBox.hidden = true;
+		const round = roundForTime(t.ms);
+		const at = roundTime(round);
+		set("[data-local]", `${formatLocal(at)} (${timeZone})`);
+		set("[data-utc]", formatUtc(at));
+		const human = formatDuration(Math.round((t.ms - now) / 1000));
+		set("[data-duration]", mode === "date" ? `${human} · ${formatCountdown((at - now) / 1000)}` : human);
+		set("[data-round]", `#${round.toLocaleString("en-US")} on drand ${QUICKNET.metadata.beaconID} (a round every ${QUICKNET.period} s)`);
+		section.querySelectorAll<HTMLButtonElement>(".chip").forEach((chip) => {
+			chip.setAttribute("aria-pressed", String(mode === "duration" && Number(chip.dataset.seconds) === parseDuration(durationInput.value)));
+		});
+	}
+
+	function setMode(next: typeof mode) {
+		mode = next;
+		section.querySelectorAll<HTMLButtonElement>("[role=tab]").forEach((tab) => tab.setAttribute("aria-selected", String(tab.dataset.mode === mode)));
+		$("#panel-duration").hidden = mode !== "duration";
+		$("#panel-date").hidden = mode !== "date";
+		render();
+	}
+
+	section.querySelectorAll<HTMLButtonElement>("[role=tab]").forEach((tab) => tab.addEventListener("click", () => setMode(tab.dataset.mode as typeof mode)));
+	section.querySelectorAll<HTMLButtonElement>(".chip").forEach((chip) =>
+		chip.addEventListener("click", () => {
+			durationInput.value = formatDuration(Number(chip.dataset.seconds));
+			render();
+		}),
+	);
+	durationInput.addEventListener("input", render);
+	dateInput.addEventListener("input", render);
+
+	function renderResult() {
+		const left = (lockedUntil - Date.now()) / 1000;
+		const when = `${formatLocal(lockedUntil)} · ${formatUtc(lockedUntil)}`;
+		const status = $("[data-result-status]");
+		status.textContent = left > 0 ? `Locked until ${when}. Opens in ${formatCountdown(left)}.` : `Unlocked since ${when}. Paste it into Decrypt to read it.`;
+		status.className = left > 0 ? "status locked" : "status ok";
+	}
+
+	form.addEventListener("submit", async (event) => {
+		event.preventDefault();
+		const message = $<HTMLTextAreaElement>("#message");
+		const t = target(Date.now());
+		if (!message.value.trim()) {
+			errorBox.textContent = "Write a message to encrypt.";
+			errorBox.hidden = false;
+			message.focus();
+			return;
+		}
+		if ("error" in t) return render();
+		const button = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
+		button.disabled = true;
+		button.textContent = "Encrypting…";
+		try {
+			const round = roundForTime(t.ms);
+			const ciphertext = await encrypt(new TextEncoder().encode(message.value), round, client);
+			lockedUntil = roundTime(round);
+			$<HTMLTextAreaElement>("#ciphertext").value = ciphertext;
+			message.value = "";
+			form.hidden = true;
+			result.hidden = false;
+			renderResult();
+			reportEvent("encrypt", round);
+		} catch (err) {
+			errorBox.textContent = `Encryption failed: ${err instanceof Error ? err.message : String(err)}`;
+			errorBox.hidden = false;
+		} finally {
+			button.disabled = false;
+			button.textContent = "Encrypt in your browser";
+		}
+	});
+
+	const ciphertext = () => $<HTMLTextAreaElement>("#ciphertext").value;
+	$("[data-copy]").addEventListener("click", async (e) => {
+		await navigator.clipboard.writeText(ciphertext());
+		const b = e.currentTarget as HTMLButtonElement;
+		b.textContent = "Copied";
+		setTimeout(() => (b.textContent = "Copy"), 1500);
+	});
+	$("[data-download]").addEventListener("click", () => {
+		const a = document.createElement("a");
+		a.href = URL.createObjectURL(new Blob([ciphertext()], { type: "text/plain" }));
+		a.download = `timelock-${new Date(lockedUntil).toISOString().replace(/[:.]/g, "-")}.age`;
+		a.click();
+		URL.revokeObjectURL(a.href);
+	});
+	$("[data-to-decrypt]").addEventListener("click", () => {
+		window.dispatchEvent(new CustomEvent("timelock:decrypt", { detail: ciphertext() }));
+	});
+	$("[data-again]").addEventListener("click", () => {
+		result.hidden = true;
+		form.hidden = false;
+		lockedUntil = 0;
+		$<HTMLTextAreaElement>("#message").focus();
+	});
+
+	render();
+	setInterval(() => {
+		if (!form.hidden) render();
+		if (lockedUntil) renderResult();
+	}, 1000);
+</script>

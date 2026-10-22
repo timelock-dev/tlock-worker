@@ -1,0 +1,89 @@
+---
+interface Props {
+	limit?: number;
+	paged?: boolean;
+}
+const { limit = 8, paged = false } = Astro.props;
+---
+
+<div class="feed-wrap" data-feed data-limit={limit} data-paged={paged ? "true" : undefined}>
+	<p class="muted small" data-feed-state>Loading activity…</p>
+	<ul class="feed" data-feed-list aria-live="polite"></ul>
+	<button class="btn secondary" type="button" data-feed-more hidden>Load older events</button>
+</div>
+
+<script>
+	import type { FeedEvent } from "../lib/events";
+	import { formatLocal, formatRelative, formatUtc } from "../lib/time";
+	import { EVENT_REPORTED } from "../scripts/report";
+
+	for (const root of document.querySelectorAll<HTMLElement>("[data-feed]")) {
+		const list = root.querySelector<HTMLUListElement>("[data-feed-list]")!;
+		const state = root.querySelector<HTMLElement>("[data-feed-state]")!;
+		const more = root.querySelector<HTMLButtonElement>("[data-feed-more]")!;
+		const limit = Number(root.dataset.limit);
+		const paged = root.dataset.paged === "true";
+		let events: FeedEvent[] = [];
+		let nextBefore: number | null = null;
+		let loaded = false;
+
+		const el = (tag: string, text: string, cls?: string) => {
+			const node = document.createElement(tag);
+			node.textContent = text;
+			if (cls) node.className = cls;
+			return node;
+		};
+
+		function render() {
+			const now = Date.now();
+			list.replaceChildren(
+				...events.map((e) => {
+					const created = Date.parse(e.createdAt);
+					const unlock = Date.parse(e.unlockAt);
+					const li = document.createElement("li");
+					li.append(el("span", e.type === "encrypt" ? "🔒" : "🔓", "icon"));
+					const body = document.createElement("div");
+					const line = el("span", `Message ${e.type}ed at ${formatLocal(created)} (${formatRelative(created, now)})`);
+					line.title = formatUtc(created);
+					const unlockText = e.type === "encrypt" ? (unlock > now ? `unlocks ${formatRelative(unlock, now)}` : `unlocked ${formatRelative(unlock, now)}`) : `had been locked until ${formatUtc(unlock)}`;
+					const meta = el("span", `${unlockText} · round #${e.round.toLocaleString("en-US")} · `, "meta");
+					meta.append(el("span", e.source === "web" ? "website" : "API", "badge"));
+					body.append(line, meta);
+					li.append(body);
+					return li;
+				}),
+			);
+			more.hidden = !paged || nextBefore === null;
+			state.hidden = events.length > 0;
+			if (!events.length) state.textContent = "No activity yet. Encrypt a message to be the first.";
+		}
+
+		async function load(append = false) {
+			const url = new URL("/api/events", location.origin);
+			url.searchParams.set("limit", String(limit));
+			if (append && nextBefore) url.searchParams.set("before", String(nextBefore));
+			try {
+				const res = await fetch(url);
+				if (!res.ok) throw new Error(String(res.status));
+				const data = (await res.json()) as { events: FeedEvent[]; nextBefore: number | null };
+				const byId = new Map([...events, ...data.events].map((e) => [e.id, e]));
+				events = [...byId.values()].sort((a, b) => b.id - a.id);
+				if (!paged) events = events.slice(0, limit);
+				if (append || !loaded) nextBefore = data.nextBefore;
+				loaded = true;
+				render();
+			} catch {
+				if (!events.length) {
+					state.hidden = false;
+					state.textContent = "The activity feed is unavailable right now. Encryption and decryption still work.";
+				}
+			}
+		}
+
+		more.addEventListener("click", () => load(true));
+		window.addEventListener(EVENT_REPORTED, () => load());
+		load();
+		setInterval(() => load(), 20_000);
+		setInterval(render, 15_000);
+	}
+</script>

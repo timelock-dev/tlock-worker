@@ -1,0 +1,20 @@
+---
+import Feed from "../components/Feed.astro";
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Activity feed · timelock.dev" description="A live, anonymous log of messages encrypted and decrypted on timelock.dev.">
+	<div class="container narrow">
+		<h1>Activity feed</h1>
+		<p class="muted">
+			Every encryption and decryption on the website or through the API, newest first. It updates automatically.
+		</p>
+		<div class="callout small">
+			<strong>What's recorded:</strong> whether a message was encrypted or decrypted, when it happened (server clock), its drand round and
+			unlock time, and whether it came from the website or the API. <strong>Never recorded:</strong> plaintext, ciphertext, IP addresses, user
+			agents or cookies. Website events are reported by your browser after it finishes, so they can't be verified.
+		</div>
+		<div class="card"><Feed limit={50} paged /></div>
+		<p class="small muted" style="margin-top:1rem">The same data is available as JSON from <a href="/docs#events"><code>GET /api/events</code></a>.</p>
+	</div>
+</Base>

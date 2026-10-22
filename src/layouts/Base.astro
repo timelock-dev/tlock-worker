@@ -1,0 +1,133 @@
+---
+import "../styles/global.css";
+
+interface Props {
+	title: string;
+	description: string;
+}
+
+const { title, description } = Astro.props;
+const path = Astro.url.pathname.replace(/\/$/, "") || "/";
+const nav = [
+	{ href: "/", label: "Encrypt" },
+	{ href: "/#decrypt", label: "Decrypt" },
+	{ href: "/feed", label: "Feed" },
+	{ href: "/docs", label: "API" },
+	{ href: "/how-it-works", label: "How it works" },
+];
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
+		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:type" content="website" />
+		<meta property="og:url" content={canonical} />
+		<meta name="theme-color" content="#12110f" media="(prefers-color-scheme: dark)" />
+		<meta name="theme-color" content="#fbfaf7" media="(prefers-color-scheme: light)" />
+	</head>
+	<body>
+		<header class="site-header">
+			<div class="container header-inner">
+				<a class="brand" href="/" aria-label="timelock.dev home">
+					<span aria-hidden="true">⏳</span> timelock<span class="muted">.dev</span>
+				</a>
+				<nav aria-label="Main">
+					{
+						nav.map((item) => (
+							<a href={item.href} aria-current={item.href === path ? "page" : undefined}>
+								{item.label}
+							</a>
+						))
+					}
+				</nav>
+			</div>
+		</header>
+
+		<main>
+			<slot />
+		</main>
+
+		<footer class="site-footer">
+			<div class="container footer-inner">
+				<span>© {new Date().getFullYear()} timelock.dev · powered by <a href="https://drand.love/">drand</a></span>
+				<span class="footer-links">
+					<a href="https://github.com/timelock-dev/tlock-worker">GitHub</a>
+					<a href="https://x.com/_alanreed">@_alanreed</a>
+					<a href="mailto:contact@timelock.dev">contact@timelock.dev</a>
+				</span>
+			</div>
+		</footer>
+	</body>
+</html>
+
+<style>
+	.site-header {
+		border-bottom: 1px solid var(--border);
+		background: var(--surface);
+	}
+	.header-inner {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem 1.5rem;
+		padding-top: 0.85rem;
+		padding-bottom: 0.85rem;
+	}
+	.brand {
+		font-weight: 700;
+		font-size: 1.05rem;
+		color: var(--text);
+		text-decoration: none;
+	}
+	nav {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 1.1rem;
+		font-size: 0.9rem;
+	}
+	nav a {
+		color: var(--muted);
+		text-decoration: none;
+	}
+	nav a:hover,
+	nav a[aria-current="page"] {
+		color: var(--text);
+		text-decoration: underline;
+		text-decoration-color: var(--accent);
+	}
+	main {
+		flex: 1;
+		padding: 2rem 0 3rem;
+	}
+	.site-footer {
+		border-top: 1px solid var(--border);
+		font-size: 0.8rem;
+		color: var(--muted);
+	}
+	.footer-inner {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		gap: 0.5rem 1rem;
+		padding-top: 1rem;
+		padding-bottom: 1rem;
+	}
+	.footer-links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1rem;
+	}
+	.site-footer a {
+		color: var(--muted);
+	}
+</style>

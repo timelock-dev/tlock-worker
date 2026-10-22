@@ -1,7 +1,16 @@
 name = "tlock-worker"
-main = "build/worker/shim.mjs"
-compatibility_date = "2022-01-20"
+main = "@astrojs/cloudflare/entrypoints/server"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
-[build]
-command = "cargo install -q worker-build && worker-build --release"
+# timelock.dev is attached to this Worker in the Cloudflare dashboard today, which `wrangler deploy` leaves alone.
+# To manage the domain from config instead, uncomment:
+# routes = [{ pattern = "timelock.dev", custom_domain = true }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "timelock-events"
+# Replace with the id printed by `npx wrangler d1 create timelock-events` before deploying.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"

@@ -1,0 +1,80 @@
+---
+import DecryptForm from "../components/DecryptForm.astro";
+import EncryptForm from "../components/EncryptForm.astro";
+import Feed from "../components/Feed.astro";
+import Base from "../layouts/Base.astro";
+---
+
+<Base
+	title="timelock.dev: send a message into the future"
+	description="Timelock encryption in your browser. Encrypt a message so that nobody, including you and us, can read it before a chosen moment. Built on the drand randomness beacon."
+>
+	<div class="container">
+		<section class="hero">
+			<h1>Send a message into the future.</h1>
+			<p class="lead muted">
+				Encrypt text so it can't be read by anyone, including you and us, until the moment you choose. It works without accounts or keys:
+				the <a href="https://drand.love/">drand</a> network publishes the decryption key for every 3-second round, and only when that round arrives.
+				<a href="/how-it-works">How it works →</a>
+			</p>
+		</section>
+
+		<div class="grid-2">
+			<EncryptForm />
+			<DecryptForm />
+		</div>
+
+		<section class="activity" aria-labelledby="activity-title">
+			<div class="activity-head">
+				<h2 id="activity-title">Recent activity</h2>
+				<a href="/feed" class="small">Full feed →</a>
+			</div>
+			<p class="muted small">
+				We record only the event type, the time it happened and the unlock round. Never your message, the ciphertext or your IP address.
+			</p>
+			<div class="card"><Feed limit={8} /></div>
+		</section>
+
+		<section class="ways" aria-labelledby="ways-title">
+			<h2 id="ways-title">Other ways to use it</h2>
+			<div class="grid-2">
+				<div class="card">
+					<h3>JSON API</h3>
+					<p class="small">Encrypt and decrypt from scripts and backends with two endpoints. The server sees your plaintext, so prefer the browser or CLI for secrets.</p>
+					<pre class="small"><code>curl -s https://timelock.dev/api/encrypt \
+  -d '&#123;"plaintext":"hello, future","duration":"5m"&#125;'</code></pre>
+					<a href="/docs" class="small">API documentation →</a>
+				</div>
+				<div class="card">
+					<h3>Offline, on your machine</h3>
+					<p class="small">The ciphertext is a standard age file, compatible with <a href="https://github.com/thibmeu/drand-rs">dee</a>, <a href="https://github.com/drand/tlock">tlock</a> (Go) and <a href="https://github.com/drand/tlock-js">tlock-js</a>.</p>
+					<pre class="small"><code>dee crypt -a -r 30d message.txt > message.age
+dee crypt --decrypt message.age</code></pre>
+					<a href="/how-it-works#cli" class="small">Using the CLI →</a>
+				</div>
+			</div>
+		</section>
+	</div>
+</Base>
+
+<style>
+	.hero {
+		max-width: 760px;
+		margin-bottom: 2rem;
+	}
+	.lead {
+		font-size: 0.95rem;
+	}
+	.activity-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+	.activity-head h2 {
+		margin-bottom: 0.25rem;
+	}
+	.ways h3 {
+		margin-top: 0;
+	}
+</style>

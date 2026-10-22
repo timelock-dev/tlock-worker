@@ -1,0 +1,34 @@
+diff --git a/node_modules/tlock-js/age/utils-crypto.js b/node_modules/tlock-js/age/utils-crypto.js
+index 821ff04..230a5b6 100644
+--- a/node_modules/tlock-js/age/utils-crypto.js
++++ b/node_modules/tlock-js/age/utils-crypto.js
+@@ -13,15 +13,7 @@ function createMacKey(fileKey, macMessage, headerText) {
+ exports.createMacKey = createMacKey;
+ // returns a string of n bytes read from a CSPRNG like /dev/urandom.
+ async function random(n) {
+-    if (typeof window === "object" && "crypto" in window) {
+-        return window.crypto.getRandomValues(new Uint8Array(n));
+-    }
+-    // parcel likes to resolve polyfills for things even if they aren't used
+-    // so this indirection tricks it into not doing it and not complaining :)
+-    const x = "crypto";
+-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+-    const bytes = require(x).randomBytes(n);
+-    return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
++    return globalThis.crypto.getRandomValues(new Uint8Array(n));
+ }
+ exports.random = random;
+ //# sourceMappingURL=utils-crypto.js.map
+\ No newline at end of file
+diff --git a/node_modules/tlock-js/drand/timelock-decrypter.js b/node_modules/tlock-js/drand/timelock-decrypter.js
+index b9ec57d..021044b 100644
+--- a/node_modules/tlock-js/drand/timelock-decrypter.js
++++ b/node_modules/tlock-js/drand/timelock-decrypter.js
+@@ -48,7 +48,6 @@ function createTimelockDecrypter(network) {
+             throw Error(`It's too early to decrypt the ciphertext - decryptable at round ${roundNumber}`);
+         }
+         const beacon = await (0, drand_client_1.fetchBeacon)(network, roundNumber);
+-        console.log(`beacon received: ${JSON.stringify(beacon)}`);
+         switch (chainInfo.schemeID) {
+             case "pedersen-bls-unchained": {
+                 const ciphertext = parseCiphertext(body, bls12_381_1.bls12_381.G1.ProjectivePoint.BASE);
