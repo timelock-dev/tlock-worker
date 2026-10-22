@@ -1,0 +1,35 @@
+---
+import { QUICKNET } from "../lib/drand";
+---
+
+<details class="verify" data-verify data-state="checking" hidden>
+	<summary class="verify-badge" aria-label="drand network check">
+		<span class="verify-icon" data-verify-icon><span class="verify-spinner"></span></span>
+		<span class="verify-text" data-verify-text>Checking drand…</span>
+	</summary>
+	<div class="verify-panel" role="dialog" aria-label="drand verification details">
+		<p class="verify-headline" data-verify-headline>Checking the drand network…</p>
+		<dl class="verify-facts">
+			<dt>Chain hash</dt>
+			<dd><code>{QUICKNET.hash}</code> (quicknet, pinned in the page)</dd>
+			<dt>Round</dt>
+			<dd data-verify-round>—</dd>
+			<dt>Signature</dt>
+			<dd data-verify-signature>—</dd>
+			<dt>Relays</dt>
+			<dd><ul class="verify-relays" data-verify-relays></ul></dd>
+		</dl>
+		<p class="verify-note">
+			Your browser checked this itself. It shows drand is live and signing with the pinned key. It can't show that this site's code is honest. <a
+				href="/how-it-works#verify">What this proves</a
+			>
+		</p>
+	</div>
+</details>
+
+<script>
+	const idle = (cb: () => void) => ("requestIdleCallback" in window ? requestIdleCallback(cb, { timeout: 3000 }) : setTimeout(cb, 300));
+	const start = () => idle(() => import("../scripts/verify-badge").then((m) => m.startVerifyBadge()));
+	if (document.readyState === "complete") start();
+	else window.addEventListener("load", start, { once: true });
+</script>

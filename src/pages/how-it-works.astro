@@ -3,6 +3,7 @@ import Base from "../layouts/Base.astro";
 import { LIMITS } from "../lib/api";
 import { DRAND_RELAYS, QUICKNET } from "../lib/drand";
 import { formatUtc } from "../lib/time";
+import { ROUND_TOLERANCE, VERIFY_RELAYS } from "../lib/verify";
 
 const genesis = formatUtc(QUICKNET.genesis_time * 1000);
 const maxYears = LIMITS.maxUnlockSeconds / (365 * 86400);
@@ -11,6 +12,7 @@ const toc = [
 	["network", "The network: drand quicknet"],
 	["who-sees-what", "Who sees what"],
 	["privacy", "What we store"],
+	["verify", "The drand check"],
 	["offline", "Encrypt offline"],
 	["limitations", "Limitations"],
 	["reading", "Further reading"],
@@ -99,6 +101,26 @@ const toc = [
 				round and its unlock time. The <a href="/#activity">recent activity</a> list on the homepage shows these rows. We do not store or log your
 				message, the encrypted text, IP addresses, browser details or cookies. The site has no analytics and no third-party scripts. Like every
 				site on Cloudflare, requests pass through Cloudflare's network, which processes connection data for security.
+			</p>
+
+			<h2 id="verify">The drand check</h2>
+			<p>
+				The badge at the top of every page is a check your browser runs after the page loads. It asks {VERIFY_RELAYS.length === 2 ? "two" : VERIFY_RELAYS.length} public drand relays
+				({VERIFY_RELAYS.map((r, i) => <><code>{new URL(r).host}</code>{i < VERIFY_RELAYS.length - 1 ? " and " : ""}</>)}) for the chain
+				information and the latest round. Then it checks that:
+			</p>
+			<ul>
+				<li>the chain hash and public key match the quicknet values built into this site,</li>
+				<li>the latest round's BLS signature is valid under that public key, and</li>
+				<li>the round number fits the current time, within {ROUND_TOLERANCE} rounds ({ROUND_TOLERANCE * QUICKNET.period} seconds).</li>
+			</ul>
+			<p>
+				<strong>What it proves:</strong> drand quicknet is running right now, and the relays serve rounds that were really signed with the key
+				this site encrypts to. Click the badge to see each relay's result.
+			</p>
+			<p>
+				<strong>What it does not prove:</strong> that this site's own JavaScript is honest. The badge is part of the same code, so a compromised
+				site could fake it. If that matters to you, <a href="#offline">encrypt offline</a>.
 			</p>
 
 			<h2 id="offline"><span id="cli"></span>Encrypt offline</h2>
