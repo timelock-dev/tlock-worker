@@ -142,7 +142,7 @@ const presets: [seconds: number, label: string][] = [
 		errorBox.hidden = true;
 		const round = roundForTime(t.ms);
 		const at = roundTime(round);
-		set("[data-local]", `${formatLocal(at)} (${timeZone})`);
+		set("[data-local]", formatLocal(at));
 		set("[data-utc]", formatUtc(at));
 		const human = formatDuration(Math.round((t.ms - now) / 1000));
 		set("[data-duration]", mode === "date" ? `${human} · ${formatCountdown((at - now) / 1000)}` : human);
