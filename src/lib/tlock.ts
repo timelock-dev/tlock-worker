@@ -61,7 +61,7 @@ export async function encrypt(plaintext: Uint8Array, round: number, client: Chai
 	return timelockEncrypt(round, Buffer.from(plaintext), client);
 }
 
-export async function decrypt(ciphertext: string, client: ChainClient, now = Date.now()): Promise<{ plaintext: Uint8Array; info: CiphertextInfo }> {
+export async function decrypt(ciphertext: string, client: ChainClient, now = Date.now()): Promise<{ plaintext: Uint8Array<ArrayBuffer>; info: CiphertextInfo }> {
 	const info = inspectCiphertext(ciphertext);
 	if (info.chainHash !== QUICKNET.hash) {
 		throw new UnsupportedChainError(`Ciphertext targets drand chain ${info.chainHash}; only quicknet (${QUICKNET.hash}) is supported.`);
@@ -72,6 +72,9 @@ export async function decrypt(ciphertext: string, client: ChainClient, now = Dat
 		return { plaintext: new Uint8Array(plaintext), info };
 	} catch (err) {
 		if (err instanceof DrandUnavailableError) throw err;
+		if (err instanceof Error && /beacon retrieved was not valid/i.test(err.message)) {
+			throw new DrandUnavailableError("A drand relay returned a beacon that failed signature verification.");
+		}
 		if (err instanceof Error && /too early/i.test(err.message)) throw new TooEarlyError(info.round, info.unlockAt);
 		throw new InvalidCiphertextError(`Decryption failed: ${err instanceof Error ? err.message : String(err)}`);
 	}

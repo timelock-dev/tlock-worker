@@ -60,7 +60,7 @@ export function formatCountdown(totalSeconds: number): string {
  * A bare number means seconds. Returns whole seconds, or null if the input is not a positive duration.
  */
 export function parseDuration(input: string | number): number | null {
-	if (typeof input === "number") return Number.isFinite(input) && input > 0 ? Math.round(input) : null;
+	if (typeof input === "number") return Number.isFinite(input) && Math.round(input) > 0 ? Math.round(input) : null;
 	const text = input.trim().toLowerCase().replace(/,|\band\b/g, " ").trim();
 	if (!text) return null;
 	if (/^\d+(\.\d+)?$/.test(text)) return parseDuration(Number(text));
