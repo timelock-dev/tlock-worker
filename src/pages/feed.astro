@@ -14,7 +14,7 @@ import Base from "../layouts/Base.astro";
 			unlock time, and whether it came from the website or the API. <strong>Never recorded:</strong> plaintext, ciphertext, IP addresses, user
 			agents or cookies. Website events are reported by your browser after it finishes, so they can't be verified.
 		</div>
-		<div class="card"><Feed limit={50} paged /></div>
+		<Feed limit={50} paged />
 		<p class="small muted" style="margin-top:1rem">The same data is available as JSON from <a href="/docs#events"><code>GET /api/events</code></a>.</p>
 	</div>
 </Base>

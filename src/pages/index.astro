@@ -31,20 +31,20 @@ import Base from "../layouts/Base.astro";
 			<p class="muted small">
 				We record only the event type, the time it happened and the unlock round. Never your message, the ciphertext or your IP address.
 			</p>
-			<div class="card"><Feed limit={8} /></div>
+			<Feed limit={8} />
 		</section>
 
 		<section class="ways" aria-labelledby="ways-title">
 			<h2 id="ways-title">Other ways to use it</h2>
 			<div class="grid-2">
-				<div class="card">
+				<div>
 					<h3>JSON API</h3>
 					<p class="small">Encrypt and decrypt from scripts and backends with two endpoints. The server sees your plaintext, so prefer the browser or CLI for secrets.</p>
 					<pre class="small"><code>curl -s https://timelock.dev/api/encrypt \
   -d '&#123;"plaintext":"hello, future","duration":"5m"&#125;'</code></pre>
 					<a href="/docs" class="small">API documentation →</a>
 				</div>
-				<div class="card">
+				<div>
 					<h3>Offline, on your machine</h3>
 					<p class="small">The ciphertext is a standard age file, compatible with <a href="https://github.com/thibmeu/drand-rs">dee</a>, <a href="https://github.com/drand/tlock">tlock</a> (Go) and <a href="https://github.com/drand/tlock-js">tlock-js</a>.</p>
 					<pre class="small"><code>dee crypt -a -r 30d message.txt > message.age
@@ -58,11 +58,11 @@ dee crypt --decrypt message.age</code></pre>
 
 <style>
 	.hero {
-		max-width: 760px;
-		margin-bottom: 2rem;
+		max-width: 720px;
+		margin-bottom: 16px;
 	}
 	.lead {
-		font-size: 0.95rem;
+		font-size: 14px;
 	}
 	.activity-head {
 		display: flex;

@@ -1,4 +1,6 @@
 name = "tlock-worker"
+# Reed Technology Solutions, LLC. This account owns the timelock-events D1 database.
+account_id = "08638017ebadc8e5b43fe6a8e3f881d8"
 main = "@astrojs/cloudflare/entrypoints/server"
 compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
