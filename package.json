@@ -16,12 +16,14 @@
 		"dev": "astro dev",
 		"build": "astro build",
 		"preview": "astro build && wrangler dev --port 4328",
-		"check": "astro check && tsc --noEmit -p tsconfig.json",
+		"check": "astro check && tsc -p test/tsconfig.json",
 		"test": "vitest run",
 		"db:migrate:local": "wrangler d1 migrations apply timelock-events --local",
 		"db:migrate:remote": "wrangler d1 migrations apply timelock-events --remote",
 		"cf-typegen": "wrangler types",
-		"deploy": "astro build && wrangler deploy"
+		"deploy": "astro build && wrangler deploy",
+		"spellcheck": "cspell --no-progress \"src/**/*.{astro,ts,css}\" \"test/**/*.ts\" \"*.md\" \"migrations/*.sql\"",
+		"linkcheck": "linkinator http://127.0.0.1:4328/ --recurse --check-fragments"
 	},
 	"dependencies": {
 		"@astrojs/cloudflare": "^14.4.2",
@@ -31,6 +33,9 @@
 	},
 	"devDependencies": {
 		"@astrojs/check": "^0.9.12",
+		"@types/node": "^22.20.5",
+		"cspell": "^10.4.0",
+		"linkinator": "^8.1.0",
 		"patch-package": "^8.0.1",
 		"typescript": "^6.0.3",
 		"vitest": "^5.0.5",
