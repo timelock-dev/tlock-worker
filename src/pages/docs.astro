@@ -33,8 +33,7 @@ const errors: [number, string, string][] = [
 
 		<div class="callout small">
 			<strong>The server sees your plaintext.</strong> These endpoints encrypt and decrypt on our Worker, so the plaintext passes through it in
-			memory. It's never logged or stored, but you have to trust that. For anything sensitive, use the
-			<a href="/">website</a> (encrypts in your browser) or a <a href="/how-it-works#cli">local CLI</a>. Both produce identical, interchangeable
+			memory. It's never logged or stored, but you have to trust that. For anything sensitive, use the <a href="/">website</a> (encrypts in your browser) or a <a href="/how-it-works#cli">local CLI</a>. Both produce identical, interchangeable
 			ciphertext.
 		</div>
 
@@ -56,7 +55,7 @@ const errors: [number, string, string][] = [
 
 		<h3>Request body</h3>
 		<div class="table-wrap">
-			<table>
+			<table class="api">
 				<thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
 				<tbody>
 					<tr><td><code>plaintext</code></td><td>string, required</td><td>The message. Up to {kib(LIMITS.plaintextBytes)} after decoding.</td></tr>
@@ -96,7 +95,7 @@ curl -s https://timelock.dev/api/encrypt \
   -d "$(jq -Rs '&#123;ciphertext: .&#125;' message.age)"</code></pre>
 		<h3>Request body</h3>
 		<div class="table-wrap">
-			<table>
+			<table class="api">
 				<thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
 				<tbody>
 					<tr><td><code>ciphertext</code></td><td>string, required</td><td>Armored age text, <code>-----BEGIN AGE ENCRYPTED FILE-----</code> … <code>-----END AGE ENCRYPTED FILE-----</code>.</td></tr>
@@ -128,7 +127,7 @@ curl -s https://timelock.dev/api/encrypt \
 		<p>The public activity feed, newest first. It contains no message content, ciphertext or IP addresses.</p>
 		<pre><code>curl -s 'https://timelock.dev/api/events?limit=2'</code></pre>
 		<div class="table-wrap">
-			<table>
+			<table class="api">
 				<thead><tr><th>Query</th><th>Description</th></tr></thead>
 				<tbody>
 					<tr><td><code>limit</code></td><td>1 to {LIMITS.feedPageSize}, default 20.</td></tr>
@@ -172,7 +171,7 @@ curl -s https://timelock.dev/api/encrypt \
 		<h2 id="errors">Errors</h2>
 		<p>JSON endpoints return <code>&#123;"error": &#123;"code": "…", "message": "…"&#125;&#125;</code> with extra fields where noted.</p>
 		<div class="table-wrap">
-			<table>
+			<table class="api">
 				<thead><tr><th>Status</th><th>Code</th><th>Meaning</th></tr></thead>
 				<tbody>
 					{errors.map(([status, code, meaning]) => <tr><td>{status}</td><td><code>{code}</code></td><td>{meaning}</td></tr>)}

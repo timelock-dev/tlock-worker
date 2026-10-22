@@ -6,6 +6,7 @@ export default defineConfig({
 	site: "https://timelock.dev",
 	adapter: cloudflare({ imageService: "passthrough" }),
 	session: false,
+	build: { format: "file" },
 	devToolbar: { enabled: false },
 	server: { port: 4327, host: true },
 });

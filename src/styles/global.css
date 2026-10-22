@@ -434,3 +434,9 @@ textarea.code {
 [hidden] {
 	display: none !important;
 }
+
+.api td:first-child code,
+.api td:nth-child(2) code {
+	white-space: nowrap;
+	overflow-wrap: normal;
+}
