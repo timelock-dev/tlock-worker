@@ -1,7 +1,7 @@
 // cspell:words héllo
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { apiDecrypt, apiEncrypt, getEvents, legacyDecrypt, legacyEncrypt, LIMITS, postEvent, resolveRound } from "../src/lib/api";
+import { apiDecrypt, apiEncrypt, getEvents, getStats, legacyDecrypt, legacyEncrypt, LIMITS, postEvent, resolveRound } from "../src/lib/api";
 import { QUICKNET, roundForTime, roundTime } from "../src/lib/drand";
 import { recordEvent } from "../src/lib/events";
 import { CORS_HEADERS, isApiPath } from "../src/lib/http";
@@ -308,6 +308,34 @@ describe("feed: /api/events", () => {
 
 	it("answers 503 when D1 isn't bound", async () => {
 		expect((await getEvents(new URL("https://timelock.dev/api/events"), {})).status).toBe(503);
+	});
+});
+
+describe("stats: /api/stats", () => {
+	const DAY = 86400_000;
+	const now = Date.UTC(2026, 9, 22, 12);
+
+	it("counts the last 30 days and averages lock time over encryptions", async () => {
+		const { db } = makeDeps();
+		const add = (type: "encrypt" | "decrypt", createdAt: number, lockMs: number) =>
+			recordEvent(db, { type, source: "web", round: 1, unlockAt: createdAt + lockMs, createdAt });
+		await add("encrypt", now - 1000, 2 * 3600_000);
+		await add("encrypt", now - 5 * DAY, 4 * 3600_000);
+		await add("encrypt", now - 2 * DAY, -60_000); // past round: counts as a zero-length lock
+		await add("decrypt", now - DAY, -3600_000);
+		await add("encrypt", now - 31 * DAY, 1000 * DAY); // outside the window
+		const res = await getStats({ db, now: () => now });
+		expect(res.headers.get("Cache-Control")).toBe("public, max-age=5");
+		expect(await res.json()).toEqual({ days: 30, encrypted: 3, decrypted: 1, averageLockSeconds: 2 * 3600 });
+	});
+
+	it("returns zeros and a null average with no events", async () => {
+		const { db } = makeDeps();
+		expect(await (await getStats({ db, now: () => now })).json()).toEqual({ days: 30, encrypted: 0, decrypted: 0, averageLockSeconds: null });
+	});
+
+	it("answers 503 when D1 isn't bound", async () => {
+		expect((await getStats({})).status).toBe(503);
 	});
 });
 

@@ -1,77 +1,73 @@
 ---
+import { env } from "cloudflare:workers";
+import Activity from "../components/Activity.astro";
 import DecryptForm from "../components/DecryptForm.astro";
 import EncryptForm from "../components/EncryptForm.astro";
-import Feed from "../components/Feed.astro";
+import Icon from "../components/Icon.astro";
 import Base from "../layouts/Base.astro";
+import { ACTIVITY_LIMIT } from "../lib/activity";
+import { LIMITS } from "../lib/api";
+import { QUICKNET } from "../lib/drand";
+import { eventStats, listEvents, type EventStats, type FeedEvent } from "../lib/events";
+
+export const prerender = false;
+
+const now = Date.now();
+let events: FeedEvent[] | null = null;
+let stats: EventStats | null = null;
+if (env.DB) {
+	try {
+		[events, stats] = await Promise.all([listEvents(env.DB, { limit: ACTIVITY_LIMIT }), eventStats(env.DB, now)]);
+	} catch (err) {
+		console.error("failed to load activity", err);
+	}
+}
+Astro.response.headers.set("Cache-Control", "no-cache");
+const maxYears = LIMITS.maxUnlockSeconds / (365 * 86400);
 ---
 
 <Base
 	title="timelock.dev: send a message into the future"
-	description="Timelock encryption in your browser. Encrypt a message so that nobody, including you and us, can read it before a chosen moment. Built on the drand randomness beacon."
+	description="Encrypt a message in your browser so that nobody can read it until a time you pick. Uses the drand network. No account needed."
 >
-	<div class="container page">
-		<section class="hero">
-			<h1>Send a message into the future.</h1>
-			<p class="lead muted">
-				Encrypt text so it can't be read by anyone, including you and us, until the moment you choose. It works without accounts or keys:
-				the <a href="https://drand.love/">drand</a> network publishes the decryption key for every 3-second round, and only when that round arrives. <a href="/how-it-works">How it works →</a>
-			</p>
-		</section>
+	<div class="container layout">
+		<div class="layout-main">
+			<header class="page-head">
+				<h1>Send a message into the future</h1>
+				<p class="lead">
+					Write a message and pick a time. Your browser encrypts it. Nobody can read it before that time, not even you or us. After that, anyone
+					with the encrypted text can read it.
+				</p>
+			</header>
 
-		<EncryptForm />
-		<DecryptForm />
+			<EncryptForm />
+			<DecryptForm />
+			<Activity events={events} stats={stats} now={now} />
+		</div>
 
-		<section class="activity" aria-labelledby="activity-title">
-			<div class="activity-head">
-				<h2 id="activity-title">Recent activity</h2>
-				<a href="/feed">Full feed →</a>
-			</div>
-			<p class="muted small">
-				We record only the event type, the time it happened and the unlock round. Never your message, the ciphertext or your IP address.
-			</p>
-			<Feed limit={8} />
-		</section>
-
-		<section class="ways" aria-labelledby="ways-title">
-			<h2 id="ways-title">Other ways to use it</h2>
-			<div class="split">
-				<div>
-					<h3>JSON API</h3>
-					<p class="small">Encrypt and decrypt from scripts and backends with two endpoints. The server sees your plaintext, so prefer the browser or CLI for secrets.</p>
-					<pre class="small"><code>curl -s https://timelock.dev/api/encrypt \
-  -d '&#123;"plaintext":"hello, future","duration":"5m"&#125;'</code></pre>
-					<a href="/docs" class="small">API documentation →</a>
-				</div>
-				<div>
-					<h3>Offline, on your machine</h3>
-					<p class="small">The ciphertext is a standard age file, compatible with <a href="https://github.com/thibmeu/drand-rs">dee</a>, <a href="https://github.com/drand/tlock">tlock</a> (Go) and <a href="https://github.com/drand/tlock-js">tlock-js</a>.</p>
-					<pre class="small"><code>dee crypt -a -r 30d message.txt > message.age
-dee crypt --decrypt message.age</code></pre>
-					<a href="/how-it-works#cli" class="small">Using the CLI →</a>
-				</div>
-			</div>
-		</section>
+		<aside class="layout-side" aria-label="About timelock.dev">
+			<section class="side-section">
+				<h2>About</h2>
+				<p>
+					The key to open your message does not exist yet. The <a href="https://drand.love/">drand</a> network creates it at the unlock time and
+					publishes it for everyone.
+				</p>
+				<ul class="facts">
+					<li><Icon name="lock" /><span>Encrypts in your browser</span></li>
+					<li><Icon name="clock" /><span>Locks for up to <strong>{maxYears} years</strong></span></li>
+					<li><Icon name="pulse" /><span>A new drand key every <strong>{QUICKNET.period} seconds</strong></span></li>
+					<li><Icon name="shield" /><span>No account, no cookies, no analytics</span></li>
+				</ul>
+			</section>
+			<section class="side-section">
+				<h2>Other ways to use it</h2>
+				<ul class="facts">
+					<li><Icon name="terminal" /><a href="/how-it-works#offline">Encrypt offline with a command-line tool</a></li>
+					<li><Icon name="code" /><a href="/docs">JSON API for scripts</a></li>
+					<li><Icon name="book" /><a href="/how-it-works">How it works and its limits</a></li>
+					<li><Icon name="code" /><a href="https://github.com/timelock-dev/tlock-worker">Source code on GitHub</a></li>
+				</ul>
+			</section>
+		</aside>
 	</div>
 </Base>
-
-<style>
-	.hero {
-		margin: 0;
-	}
-	.lead {
-		margin: 0;
-		font-size: 14px;
-	}
-	.activity-head {
-		display: flex;
-		align-items: baseline;
-		justify-content: space-between;
-		gap: 1rem;
-	}
-	.activity-head h2 {
-		margin-bottom: 0.25rem;
-	}
-	.ways h3 {
-		margin-top: 0;
-	}
-</style>

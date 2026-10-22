@@ -1,7 +1,7 @@
 import type { ChainClient } from "drand-client";
 import { Buffer } from "tlock-js";
 import { DrandUnavailableError, QUICKNET, currentRound, roundForTime, roundTime } from "./drand";
-import { listEvents, recordEvent, type EventsDb, type EventSource, type EventType } from "./events";
+import { eventStats, listEvents, recordEvent, type EventsDb, type EventSource, type EventType } from "./events";
 import { ApiError, errorJson, errorText, json, readBody, readJson } from "./http";
 import { parseDuration, parseTimestamp } from "./time";
 import {
@@ -208,6 +208,17 @@ export async function postEvent(request: Request, deps: Deps): Promise<Response>
 		if (!deps.db) throw new ApiError(503, "feed_unavailable", "The activity feed is not configured.");
 		await recordEvent(deps.db, { type, source: "web", round, unlockAt: roundTime(round), createdAt: now });
 		return new Response(null, { status: 204 });
+	} catch (err) {
+		return errorJson(toApiError(err));
+	}
+}
+
+/** GET /api/stats */
+export async function getStats(deps: Pick<Deps, "db" | "now">): Promise<Response> {
+	try {
+		if (!deps.db) throw new ApiError(503, "feed_unavailable", "The activity feed is not configured.");
+		const stats = await eventStats(deps.db, (deps.now ?? Date.now)());
+		return json(stats, { headers: { "Cache-Control": "public, max-age=5" } });
 	} catch (err) {
 		return errorJson(toApiError(err));
 	}

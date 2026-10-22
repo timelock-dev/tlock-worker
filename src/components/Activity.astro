@@ -1,0 +1,80 @@
+---
+import { ACTIVITY_LIMIT, activityRowsHtml, statsHtml } from "../lib/activity";
+import type { EventStats, FeedEvent } from "../lib/events";
+import Icon from "./Icon.astro";
+
+interface Props {
+	/** null when D1 is unavailable. */
+	events: FeedEvent[] | null;
+	stats: EventStats | null;
+	now: number;
+}
+const { events, stats, now } = Astro.props;
+---
+
+<section id="activity" aria-labelledby="activity-title" data-activity data-limit={ACTIVITY_LIMIT}>
+	<h2 class="section-title" id="activity-title">Recent activity</h2>
+	<div class="Box">
+		<div class="Box-header compact">
+			<p class="Box-title stats" data-stats set:html={stats ? statsHtml(stats) : "Activity is unavailable right now."} />
+		</div>
+		<ul class="activity-list" data-activity-list aria-live="polite" set:html={events ? activityRowsHtml(events, now, "UTC") : ""} />
+		<p class="blankslate" data-activity-empty hidden={events !== null && events.length > 0}>
+			{events === null ? "The activity list could not be loaded. Encrypting and decrypting still work." : "Nothing yet. Encrypt a message and it will show up here."}
+		</p>
+		<div class="Box-footer">Each row is one encryption or decryption. We record the type, the time and the unlock round. Never the message.</div>
+	</div>
+	<p class="note">
+		<Icon name="shield" />
+		<span>We never store your message. For higher security, <a href="/how-it-works#offline">encrypt offline</a>.</span>
+	</p>
+</section>
+
+<style>
+	.section-title {
+		font-size: 16px;
+		margin: 0 0 8px;
+	}
+	.stats {
+		font-weight: 400;
+	}
+</style>
+
+<script>
+	import { activityRowsHtml, statsHtml } from "../lib/activity";
+	import type { EventStats, FeedEvent } from "../lib/events";
+	import { EVENT_REPORTED } from "../scripts/report";
+
+	const root = document.querySelector<HTMLElement>("[data-activity]");
+	if (root) {
+		const list = root.querySelector<HTMLUListElement>("[data-activity-list]")!;
+		const empty = root.querySelector<HTMLElement>("[data-activity-empty]")!;
+		const statsLine = root.querySelector<HTMLElement>("[data-stats]")!;
+		const limit = Number(root.dataset.limit);
+		let events: FeedEvent[] | null = null;
+
+		const render = () => {
+			if (!events) return;
+			list.innerHTML = activityRowsHtml(events, Date.now());
+			empty.hidden = events.length > 0;
+			empty.textContent = "Nothing yet. Encrypt a message and it will show up here.";
+		};
+
+		async function refresh() {
+			try {
+				const [eventsRes, statsRes] = await Promise.all([fetch(`/api/events?limit=${limit}`), fetch("/api/stats")]);
+				if (!eventsRes.ok || !statsRes.ok) return;
+				events = ((await eventsRes.json()) as { events: FeedEvent[] }).events;
+				statsLine.innerHTML = statsHtml((await statsRes.json()) as EventStats);
+				render();
+			} catch {
+				/* keep the server-rendered list */
+			}
+		}
+
+		window.addEventListener(EVENT_REPORTED, refresh);
+		refresh();
+		setInterval(refresh, 30_000);
+		setInterval(render, 15_000);
+	}
+</script>

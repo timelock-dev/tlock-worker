@@ -39,6 +39,36 @@ export async function recordEvent(
 		.run();
 }
 
+export interface EventStats {
+	days: number;
+	encrypted: number;
+	decrypted: number;
+	/** Mean seconds between encrypting and the unlock time, over encryptions in the window; null when there are none. */
+	averageLockSeconds: number | null;
+}
+
+export const STATS_DAYS = 30;
+
+export async function eventStats(db: EventsDb, now: number = Date.now(), days: number = STATS_DAYS): Promise<EventStats> {
+	const { results } = await db
+		.prepare(
+			`SELECT
+				COALESCE(SUM(type = 'encrypt'), 0) AS encrypted,
+				COALESCE(SUM(type = 'decrypt'), 0) AS decrypted,
+				AVG(CASE WHEN type = 'encrypt' THEN MAX(unlock_at - created_at, 0) END) AS avg_lock_ms
+			FROM events WHERE created_at >= ?`,
+		)
+		.bind(now - days * 86400_000)
+		.all<{ encrypted: number; decrypted: number; avg_lock_ms: number | null }>();
+	const row = results[0] ?? { encrypted: 0, decrypted: 0, avg_lock_ms: null };
+	return {
+		days,
+		encrypted: Number(row.encrypted),
+		decrypted: Number(row.decrypted),
+		averageLockSeconds: row.avg_lock_ms === null ? null : Math.round(row.avg_lock_ms / 1000),
+	};
+}
+
 export async function listEvents(db: EventsDb, { limit = 20, before }: { limit?: number; before?: number } = {}): Promise<FeedEvent[]> {
 	const { results } = await db
 		.prepare(
