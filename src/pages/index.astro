@@ -9,7 +9,7 @@ import Base from "../layouts/Base.astro";
 	title="timelock.dev: send a message into the future"
 	description="Timelock encryption in your browser. Encrypt a message so that nobody, including you and us, can read it before a chosen moment. Built on the drand randomness beacon."
 >
-	<div class="container">
+	<div class="container page">
 		<section class="hero">
 			<h1>Send a message into the future.</h1>
 			<p class="lead muted">
@@ -18,15 +18,13 @@ import Base from "../layouts/Base.astro";
 			</p>
 		</section>
 
-		<div class="grid-2">
-			<EncryptForm />
-			<DecryptForm />
-		</div>
+		<EncryptForm />
+		<DecryptForm />
 
 		<section class="activity" aria-labelledby="activity-title">
 			<div class="activity-head">
 				<h2 id="activity-title">Recent activity</h2>
-				<a href="/feed" class="small">Full feed →</a>
+				<a href="/feed">Full feed →</a>
 			</div>
 			<p class="muted small">
 				We record only the event type, the time it happened and the unlock round. Never your message, the ciphertext or your IP address.
@@ -36,7 +34,7 @@ import Base from "../layouts/Base.astro";
 
 		<section class="ways" aria-labelledby="ways-title">
 			<h2 id="ways-title">Other ways to use it</h2>
-			<div class="grid-2">
+			<div class="split">
 				<div>
 					<h3>JSON API</h3>
 					<p class="small">Encrypt and decrypt from scripts and backends with two endpoints. The server sees your plaintext, so prefer the browser or CLI for secrets.</p>
@@ -58,10 +56,10 @@ dee crypt --decrypt message.age</code></pre>
 
 <style>
 	.hero {
-		max-width: 720px;
-		margin-bottom: 16px;
+		margin: 0;
 	}
 	.lead {
+		margin: 0;
 		font-size: 14px;
 	}
 	.activity-head {

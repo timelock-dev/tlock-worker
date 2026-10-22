@@ -11,7 +11,7 @@ const presets: [seconds: number, label: string][] = [
 ];
 ---
 
-<section class="card" id="encrypt" aria-labelledby="encrypt-title">
+<section id="encrypt" aria-labelledby="encrypt-title">
 	<h2 id="encrypt-title">Encrypt</h2>
 	<form id="encrypt-form" novalidate>
 		<div class="field">
@@ -146,7 +146,10 @@ const presets: [seconds: number, label: string][] = [
 		set("[data-utc]", formatUtc(at));
 		const human = formatDuration(Math.round((t.ms - now) / 1000));
 		set("[data-duration]", mode === "date" ? `${human} · ${formatCountdown((at - now) / 1000)}` : human);
-		set("[data-round]", `#${round.toLocaleString("en-US")} on drand ${QUICKNET.metadata.beaconID} (a round every ${QUICKNET.period} s)`);
+		const roundLine = $("[data-round]");
+		const roundId = document.createElement("code");
+		roundId.textContent = `#${round.toLocaleString("en-US")}`;
+		roundLine.replaceChildren(roundId, document.createTextNode(` on drand ${QUICKNET.metadata.beaconID} (a round every ${QUICKNET.period} s)`));
 		section.querySelectorAll<HTMLButtonElement>(".chip").forEach((chip) => {
 			chip.setAttribute("aria-pressed", String(mode === "duration" && Number(chip.dataset.seconds) === parseDuration(durationInput.value)));
 		});

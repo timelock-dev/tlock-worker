@@ -36,12 +36,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 	<body>
 		<header class="site-header">
 			<div class="container header-inner">
-				<a class="brand" href="/" aria-label="timelock.dev home">
-					<svg class="mark" viewBox="0 0 32 32" width="16" height="16" aria-hidden="true">
-						<path d="M10 7h12M10 25h12M11 7c0 5 10 6 10 9s-10 4-10 9M21 7c0 5-10 6-10 9s10 4 10 9" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="square"></path>
-					</svg>
-					timelock<span class="muted">.dev</span>
-				</a>
+				<a class="brand" href="/" aria-label="timelock.dev home">timelock<span class="muted">.dev</span></a>
 				<nav aria-label="Main">
 					{
 						nav.map((item) => (
@@ -81,27 +76,22 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
-		gap: 4px 16px;
-		padding-top: 8px;
-		padding-bottom: 8px;
+		gap: 8px 16px;
+		min-height: 64px;
+		padding-top: 16px;
+		padding-bottom: 16px;
 	}
 	.brand {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
 		font-weight: 600;
-		font-size: 14px;
+		font-size: 16px;
+		line-height: 1.25;
 		color: var(--text);
 		text-decoration: none;
-	}
-	.mark {
-		color: var(--accent);
-		flex: none;
 	}
 	nav {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 2px 12px;
+		gap: 8px 16px;
 		font-size: 14px;
 	}
 	nav a {
@@ -115,9 +105,14 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 	nav a[aria-current="page"] {
 		font-weight: 600;
 	}
+	@media (max-width: 640px) {
+		nav {
+			flex-basis: 100%;
+		}
+	}
 	main {
 		flex: 1;
-		padding: 16px 0 32px;
+		padding: 32px 0 48px;
 	}
 	.site-footer {
 		border-top: 1px solid var(--border);
