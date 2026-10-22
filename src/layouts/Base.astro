@@ -2,6 +2,7 @@
 import "../styles/global.css";
 import Icon from "../components/Icon.astro";
 import Logo from "../components/Logo.astro";
+import VerifyBadge from "../components/VerifyBadge.astro";
 import type { IconName } from "../lib/icons";
 
 interface Props {
@@ -12,11 +13,10 @@ interface Props {
 const { title, description } = Astro.props;
 const path = Astro.url.pathname.replace(/(\.html)?\/?$/, "") || "/";
 const nav: { href: string; label: string; icon: IconName }[] = [
-	{ href: "/", label: "Encrypt", icon: "lock" },
-	{ href: "/#decrypt", label: "Decrypt", icon: "unlock" },
-	{ href: "/docs", label: "API", icon: "code" },
 	{ href: "/how-it-works", label: "How it works", icon: "book" },
+	{ href: "/docs", label: "API", icon: "code" },
 ];
+const repo = "https://github.com/timelock-dev/tlock-worker";
 const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ""), Astro.site);
 ---
 
@@ -35,24 +35,38 @@ const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ""), Astro.site)
 		<meta property="og:description" content={description} />
 		<meta property="og:type" content="website" />
 		<meta property="og:url" content={canonical} />
-		<meta name="theme-color" content="#f6f8fa" />
+		<meta name="theme-color" content="#ffffff" />
 	</head>
 	<body>
 		<header class="app-header">
-			<div class="container header-context">
+			<div class="container header-row">
 				<Logo size={24} />
-				<span class="Label">drand quicknet</span>
+				<VerifyBadge />
+				<nav class="header-nav" aria-label="Main">
+					{
+						nav.map((item) => (
+							<a href={item.href} aria-current={item.href === path ? "page" : undefined}>
+								{item.label}
+							</a>
+						))
+					}
+					<a class="github-btn" href={repo}><Icon name="github" /><span>GitHub</span></a>
+				</nav>
+				<details class="menu">
+					<summary class="menu-btn" aria-label="Menu"><span class="menu-open"><Icon name="menu" /></span><span class="menu-close"><Icon name="x" /></span></summary>
+					<nav class="menu-panel" aria-label="Main">
+						{
+							nav.map((item) => (
+								<a href={item.href} aria-current={item.href === path ? "page" : undefined}>
+									<Icon name={item.icon} />
+									<span>{item.label}</span>
+								</a>
+							))
+						}
+						<a href={repo}><Icon name="github" /><span>GitHub</span></a>
+					</nav>
+				</details>
 			</div>
-			<nav class="container underline-nav" aria-label="Main">
-				{
-					nav.map((item) => (
-						<a href={item.href} aria-current={item.href === path ? "page" : undefined}>
-							<Icon name={item.icon} />
-							<span>{item.label}</span>
-						</a>
-					))
-				}
-			</nav>
 		</header>
 
 		<main>
@@ -74,71 +88,115 @@ const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ""), Astro.site)
 
 <style>
 	.app-header {
-		background: var(--canvas-subtle);
+		position: relative;
+		background: var(--bg);
 		border-bottom: 1px solid var(--border);
 	}
-	.header-context {
+	.header-row {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		padding-top: 16px;
-		padding-bottom: 8px;
+		gap: 12px;
+		min-height: 60px;
 	}
-	.underline-nav {
+	.header-nav {
 		display: flex;
-		gap: 8px;
-		overflow-x: auto;
-		scrollbar-width: none;
-	}
-	.underline-nav a {
-		position: relative;
-		display: inline-flex;
 		align-items: center;
-		gap: 8px;
-		padding: 8px 8px 12px;
+		gap: 4px;
+		margin-left: auto;
+	}
+	.header-nav a {
+		padding: 6px 10px;
+		border-radius: var(--radius);
 		color: var(--text);
 		font-size: 14px;
-		line-height: 20px;
+		font-weight: 500;
 		white-space: nowrap;
+	}
+	.header-nav a:hover {
+		background: var(--canvas-subtle);
 		text-decoration: none;
-		isolation: isolate;
 	}
-	.underline-nav a:first-child {
-		margin-left: -8px;
+	.header-nav a[aria-current="page"] {
+		color: var(--green-text);
+		background: var(--mint);
 	}
-	.underline-nav a :global(.octicon) {
+	.header-nav .github-btn {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		margin-left: 8px;
+		border: 1px solid var(--border);
+	}
+	.menu {
+		display: none;
+		margin-left: auto;
+	}
+	.menu-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		cursor: pointer;
+		list-style: none;
+	}
+	.menu-btn::-webkit-details-marker {
+		display: none;
+	}
+	.menu-close,
+	.menu[open] .menu-open {
+		display: none;
+	}
+	.menu[open] .menu-close {
+		display: inline-flex;
+	}
+	.menu-open {
+		display: inline-flex;
+	}
+	.menu-panel {
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: 100%;
+		z-index: 20;
+		display: grid;
+		padding: 8px 16px 16px;
+		background: var(--bg);
+		border-bottom: 1px solid var(--border);
+		box-shadow: var(--shadow-lg);
+	}
+	.menu-panel a {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 12px 8px;
+		border-radius: var(--radius);
+		color: var(--text);
+		font-size: 16px;
+		font-weight: 500;
+	}
+	.menu-panel a + a {
+		border-top: 1px solid var(--border-muted);
+	}
+	.menu-panel a:hover {
+		background: var(--canvas-subtle);
+		text-decoration: none;
+	}
+	.menu-panel a[aria-current="page"] {
+		color: var(--green-text);
+	}
+	.menu-panel :global(.octicon) {
 		color: var(--muted);
 	}
-	.underline-nav a::before {
-		content: "";
-		position: absolute;
-		inset: 4px 0 8px;
-		border-radius: var(--radius);
-		z-index: -1;
-	}
-	.underline-nav a:hover::before {
-		background: rgba(208, 215, 222, 0.32);
-	}
-	.underline-nav a[aria-current="page"] {
-		font-weight: 600;
-	}
-	@media (max-width: 543px) {
-		.underline-nav {
-			gap: 0;
-		}
-		.underline-nav a :global(.octicon) {
+	@media (max-width: 767px) {
+		.header-nav {
 			display: none;
 		}
-	}
-	.underline-nav a[aria-current="page"]::after {
-		content: "";
-		position: absolute;
-		left: 8px;
-		right: 8px;
-		bottom: -1px;
-		height: 2px;
-		border-radius: 6px;
-		background: var(--accent-underline);
+		.menu {
+			display: block;
+		}
 	}
 	main {
 		flex: 1;

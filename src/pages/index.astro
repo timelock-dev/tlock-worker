@@ -30,16 +30,22 @@ const maxYears = LIMITS.maxUnlockSeconds / (365 * 86400);
 	title="timelock.dev: send a message into the future"
 	description="Encrypt a message in your browser so that nobody can read it until a time you pick. Uses the drand network. No account needed."
 >
+	<section class="hero">
+		<div class="container">
+			<h1>Send a message <span class="accent">into the future</span></h1>
+			<p class="lead">
+				Write a message and pick a time. Your browser encrypts it. Nobody can read it before that time, not even you or us. After that, anyone
+				with the encrypted text can read it.
+			</p>
+			<p class="hero-links">
+				<a href="#encrypt"><Icon name="lock" />Encrypt a message</a>
+				<a href="#decrypt"><Icon name="unlock" />Have an encrypted message? Decrypt it below</a>
+			</p>
+		</div>
+	</section>
+
 	<div class="container layout">
 		<div class="layout-main">
-			<header class="page-head">
-				<h1>Send a message into the future</h1>
-				<p class="lead">
-					Write a message and pick a time. Your browser encrypts it. Nobody can read it before that time, not even you or us. After that, anyone
-					with the encrypted text can read it.
-				</p>
-			</header>
-
 			<EncryptForm />
 			<DecryptForm />
 			<Activity events={events} stats={stats} now={now} />
