@@ -1,5 +1,8 @@
 ---
 import "../styles/global.css";
+import Icon from "../components/Icon.astro";
+import Logo from "../components/Logo.astro";
+import type { IconName } from "../lib/icons";
 
 interface Props {
 	title: string;
@@ -7,15 +10,14 @@ interface Props {
 }
 
 const { title, description } = Astro.props;
-const path = Astro.url.pathname.replace(/\/$/, "") || "/";
-const nav = [
-	{ href: "/", label: "Encrypt" },
-	{ href: "/#decrypt", label: "Decrypt" },
-	{ href: "/feed", label: "Feed" },
-	{ href: "/docs", label: "API" },
-	{ href: "/how-it-works", label: "How it works" },
+const path = Astro.url.pathname.replace(/(\.html)?\/?$/, "") || "/";
+const nav: { href: string; label: string; icon: IconName }[] = [
+	{ href: "/", label: "Encrypt", icon: "lock" },
+	{ href: "/#decrypt", label: "Decrypt", icon: "unlock" },
+	{ href: "/docs", label: "API", icon: "code" },
+	{ href: "/how-it-works", label: "How it works", icon: "book" },
 ];
-const canonical = new URL(Astro.url.pathname, Astro.site);
+const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ""), Astro.site);
 ---
 
 <!doctype html>
@@ -26,27 +28,31 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 		<title>{title}</title>
 		<meta name="description" content={description} />
 		<link rel="canonical" href={canonical} />
+		<link rel="icon" href="/favicon.ico" sizes="32x32" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 		<meta property="og:title" content={title} />
 		<meta property="og:description" content={description} />
 		<meta property="og:type" content="website" />
 		<meta property="og:url" content={canonical} />
-		<meta name="theme-color" content="#ffffff" />
+		<meta name="theme-color" content="#f6f8fa" />
 	</head>
 	<body>
-		<header class="site-header">
-			<div class="container header-inner">
-				<a class="brand" href="/" aria-label="timelock.dev home">timelock<span class="muted">.dev</span></a>
-				<nav aria-label="Main">
-					{
-						nav.map((item) => (
-							<a href={item.href} aria-current={item.href === path ? "page" : undefined}>
-								{item.label}
-							</a>
-						))
-					}
-				</nav>
+		<header class="app-header">
+			<div class="container header-context">
+				<Logo size={24} />
+				<span class="Label">drand quicknet</span>
 			</div>
+			<nav class="container underline-nav" aria-label="Main">
+				{
+					nav.map((item) => (
+						<a href={item.href} aria-current={item.href === path ? "page" : undefined}>
+							<Icon name={item.icon} />
+							<span>{item.label}</span>
+						</a>
+					))
+				}
+			</nav>
 		</header>
 
 		<main>
@@ -55,9 +61,9 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 
 		<footer class="site-footer">
 			<div class="container footer-inner">
-				<span>© {new Date().getFullYear()} timelock.dev · powered by <a href="https://drand.love/">drand</a></span>
+				<span class="footer-brand"><Logo size={16} /><span>© {new Date().getFullYear()} · Keys from <a href="https://drand.love/">drand</a></span></span>
 				<span class="footer-links">
-					<a href="https://github.com/timelock-dev/tlock-worker">GitHub</a>
+					<a href="https://github.com/timelock-dev/tlock-worker">Source on GitHub</a>
 					<a href="https://x.com/_alanreed">@_alanreed</a>
 					<a href="mailto:contact@timelock.dev">contact@timelock.dev</a>
 				</span>
@@ -67,52 +73,76 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 </html>
 
 <style>
-	.site-header {
+	.app-header {
+		background: var(--canvas-subtle);
 		border-bottom: 1px solid var(--border);
-		background: var(--surface);
 	}
-	.header-inner {
+	.header-context {
 		display: flex;
-		flex-wrap: wrap;
 		align-items: center;
-		justify-content: space-between;
-		gap: 8px 16px;
-		min-height: 64px;
+		gap: 8px;
 		padding-top: 16px;
-		padding-bottom: 16px;
+		padding-bottom: 8px;
 	}
-	.brand {
-		font-weight: 600;
-		font-size: 16px;
-		line-height: 1.25;
-		color: var(--text);
-		text-decoration: none;
-	}
-	nav {
+	.underline-nav {
 		display: flex;
-		flex-wrap: wrap;
-		gap: 8px 16px;
-		font-size: 14px;
+		gap: 8px;
+		overflow-x: auto;
+		scrollbar-width: none;
 	}
-	nav a {
+	.underline-nav a {
+		position: relative;
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 8px 12px;
 		color: var(--text);
+		font-size: 14px;
+		line-height: 20px;
+		white-space: nowrap;
 		text-decoration: none;
+		isolation: isolate;
 	}
-	nav a:hover {
-		color: var(--link);
-		text-decoration: none;
+	.underline-nav a:first-child {
+		margin-left: -8px;
 	}
-	nav a[aria-current="page"] {
+	.underline-nav a :global(.octicon) {
+		color: var(--muted);
+	}
+	.underline-nav a::before {
+		content: "";
+		position: absolute;
+		inset: 4px 0 8px;
+		border-radius: var(--radius);
+		z-index: -1;
+	}
+	.underline-nav a:hover::before {
+		background: rgba(208, 215, 222, 0.32);
+	}
+	.underline-nav a[aria-current="page"] {
 		font-weight: 600;
 	}
-	@media (max-width: 640px) {
-		nav {
-			flex-basis: 100%;
+	@media (max-width: 543px) {
+		.underline-nav {
+			gap: 0;
 		}
+		.underline-nav a :global(.octicon) {
+			display: none;
+		}
+	}
+	.underline-nav a[aria-current="page"]::after {
+		content: "";
+		position: absolute;
+		left: 8px;
+		right: 8px;
+		bottom: -1px;
+		height: 2px;
+		border-radius: 6px;
+		background: var(--accent-underline);
 	}
 	main {
 		flex: 1;
-		padding: 32px 0 48px;
+		padding: 24px 0 48px;
 	}
 	.site-footer {
 		border-top: 1px solid var(--border);
@@ -122,17 +152,20 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 	.footer-inner {
 		display: flex;
 		flex-wrap: wrap;
+		align-items: center;
 		justify-content: space-between;
 		gap: 8px 16px;
-		padding-top: 12px;
-		padding-bottom: 12px;
+		padding-top: 16px;
+		padding-bottom: 16px;
+	}
+	.footer-brand {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
 	}
 	.footer-links {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 1rem;
-	}
-	.site-footer a {
-		color: var(--link);
+		gap: 16px;
 	}
 </style>

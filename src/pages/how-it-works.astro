@@ -5,158 +5,190 @@ import { DRAND_RELAYS, QUICKNET } from "../lib/drand";
 import { formatUtc } from "../lib/time";
 
 const genesis = formatUtc(QUICKNET.genesis_time * 1000);
+const maxYears = LIMITS.maxUnlockSeconds / (365 * 86400);
+const toc = [
+	["steps", "How it works in four steps"],
+	["network", "The network: drand quicknet"],
+	["who-sees-what", "Who sees what"],
+	["privacy", "What we store"],
+	["offline", "Encrypt offline"],
+	["limitations", "Limitations"],
+	["reading", "Further reading"],
+];
 ---
 
 <Base
 	title="How it works · timelock.dev"
-	description="How timelock.dev encrypts messages to the future with drand quicknet and tlock: the scheme, the network, what the server sees, and the limitations."
+	description="How timelock.dev locks messages until a future time with drand quicknet and tlock: the method, the network, what we see and store, and the limitations."
 >
-	<div class="container narrow prose">
-		<h1>How it works</h1>
-		<p class="muted">
-			timelock.dev is a thin interface to <strong>tlock</strong>, a timelock encryption scheme built on the <a href="https://drand.love/">drand</a> distributed randomness beacon. Nobody holds a key you need to trust us with, and nobody can open your message early, including us.
-		</p>
+	<div class="container layout">
+		<article class="layout-main markdown">
+			<header class="page-head">
+				<h1>How it works</h1>
+				<p class="lead">
+					timelock.dev uses tlock, an encryption method built on the <a href="https://drand.love/">drand</a> network. You encrypt a message to a
+					future time. drand creates and publishes the key for that time when it arrives. Until then the key does not exist, so nobody can read
+					the message, including you and us.
+				</p>
+			</header>
 
-		<h2 id="scheme">The idea in four steps</h2>
-		<ol>
-			<li>
-				drand is a network run by the <a href="https://www.cloudflare.com/leagueofentropy/">League of Entropy</a>, a group of independent
-				organizations. Every {QUICKNET.period} seconds it publishes a <em>round</em>: a threshold BLS signature over the round number. No single
-				member can produce it alone.
-			</li>
-			<li>
-				That signature doubles as a private key in an identity-based encryption scheme (Boneh–Franklin on the BLS12-381 curve), where the
-				"identity" is the round number. Anyone can encrypt <em>to</em> a future round using only the network's public key.
-			</li>
-			<li>
-				Your message is encrypted with a random key using <a href="https://age-encryption.org/v1">age</a> (ChaCha20-Poly1305), and that key is
-				encrypted to the target round. The output is a normal age file with a <code>tlock</code> recipient line: <code>-&gt; tlock &lt;round&gt; &lt;chain hash&gt;</code>.
-			</li>
-			<li>
-				When the round arrives, drand publishes its signature. Anyone holding the ciphertext can fetch it, recover the key and read the message.
-			</li>
-		</ol>
-		<p>
-			The construction is described in <a href="https://eprint.iacr.org/2023/189">tlock: Practical Timelock Encryption from Threshold BLS</a> (Gailly, Melissaris and Romailler, 2023). This site uses the drand team's <a href="https://github.com/drand/tlock-js">tlock-js</a>. Its output
-			is interchangeable with <a href="https://github.com/drand/tlock">tlock</a> (Go) and <a href="https://github.com/thibmeu/tlock-rs">tlock-rs</a> / <a href="https://github.com/thibmeu/drand-rs">dee</a> (Rust).
-		</p>
+			<h2 id="steps">How it works in four steps</h2>
+			<ol>
+				<li>
+					drand is a network run by the <a href="https://www.cloudflare.com/leagueofentropy/">League of Entropy</a>, a group of independent
+					organizations. Every {QUICKNET.period} seconds the members work together to sign the next round number. No single member can make the
+					signature alone.
+				</li>
+				<li>
+					That signature is the key for anything encrypted to its round. To encrypt to a future round, you only need drand's public key, which
+					is built into this site. In technical terms, this is identity-based encryption (Boneh–Franklin on the BLS12-381 curve) with the round
+					number as the identity.
+				</li>
+				<li>
+					Your message is encrypted with a random key using <a href="https://age-encryption.org/v1">age</a> (ChaCha20-Poly1305). That random key
+					is then encrypted to the round you picked. The result is a normal age file with a <code>tlock</code> line:
+					<code>-&gt; tlock &lt;round&gt; &lt;chain hash&gt;</code>.
+				</li>
+				<li>When the round arrives, drand publishes its signature. Anyone with the encrypted file can download it, recover the random key and read the message.</li>
+			</ol>
+			<p>
+				The method comes from the paper <a href="https://eprint.iacr.org/2023/189">tlock: Practical Timelock Encryption from Threshold BLS</a>
+				(Gailly, Melissaris and Romailler, 2023). This site uses the drand team's <a href="https://github.com/drand/tlock-js">tlock-js</a>
+				library. Its files work with <a href="https://github.com/drand/tlock">tlock</a> (Go) and
+				<a href="https://github.com/thibmeu/tlock-rs">tlock-rs</a> or <a href="https://github.com/thibmeu/drand-rs">dee</a> (Rust), in both
+				directions.
+			</p>
 
-		<h2 id="network">The network: drand quicknet</h2>
-		<div class="table-wrap">
-			<table>
-				<tbody>
-					<tr><th>Chain hash</th><td><code>{QUICKNET.hash}</code></td></tr>
-					<tr><th>Public key</th><td><code>{QUICKNET.public_key}</code></td></tr>
-					<tr><th>Scheme</th><td><code>{QUICKNET.schemeID}</code> (unchained, signatures on G1, RFC 9380 hashing)</td></tr>
-					<tr><th>Period</th><td>{QUICKNET.period} seconds</td></tr>
-					<tr><th>Genesis</th><td>{genesis} (round 1)</td></tr>
-					<tr><th>Relays</th><td>{DRAND_RELAYS.map((r, i) => <><code>{r}</code>{i < DRAND_RELAYS.length - 1 ? ", " : ""}</>)}</td></tr>
-				</tbody>
-			</table>
-		</div>
-		<p>
-			Round <em>r</em> is published at <code>genesis + (r − 1) × {QUICKNET.period} s</code>. The chain parameters above are built into the site and
-			API, and every signature fetched from a relay is verified against the public key. A relay can delay or withhold a round, but it can't forge
-			one.
-		</p>
+			<h2 id="network">The network: drand quicknet</h2>
+			<div class="table-wrap">
+				<table>
+					<tbody>
+						<tr><th>Chain hash</th><td><code>{QUICKNET.hash}</code></td></tr>
+						<tr><th>Public key</th><td><code>{QUICKNET.public_key}</code></td></tr>
+						<tr><th>Scheme</th><td><code>{QUICKNET.schemeID}</code> (unchained, signatures on G1, RFC 9380 hashing)</td></tr>
+						<tr><th>Period</th><td>{QUICKNET.period} seconds</td></tr>
+						<tr><th>Genesis</th><td>{genesis} (round 1)</td></tr>
+						<tr><th>Relays</th><td>{DRAND_RELAYS.map((r, i) => <><code>{r}</code>{i < DRAND_RELAYS.length - 1 ? ", " : ""}</>)}</td></tr>
+					</tbody>
+				</table>
+			</div>
+			<p>
+				Round <em>r</em> is published at <code>genesis + (r − 1) × {QUICKNET.period} s</code>. These settings are built into the site and the API.
+				Every signature downloaded from a relay is checked against the public key. A relay can delay a round or refuse to send it, but it cannot
+				fake one.
+			</p>
 
-		<h2 id="who-sees-what">Client-side vs server-side: who sees what</h2>
-		<div class="table-wrap">
-			<table>
-				<thead><tr><th></th><th>Website (browser)</th><th>JSON API / original endpoints</th><th>Local CLI</th></tr></thead>
-				<tbody>
-					<tr><th>Where encryption runs</th><td>In your browser</td><td>On our Cloudflare Worker</td><td>On your machine</td></tr>
-					<tr><th>timelock.dev sees your message</th><td>No</td><td><strong>Yes</strong>, in memory during the request</td><td>No</td></tr>
-					<tr><th>timelock.dev sees the ciphertext</th><td>No</td><td>Yes, in memory during the request</td><td>No</td></tr>
-					<tr><th>drand relays see</th><td>Your IP and the round you decrypt</td><td>Our Worker's request for the round</td><td>Your IP and the round</td></tr>
-					<tr><th>Recorded in the feed</th><td>Event type, round, time (reported by your browser)</td><td>Event type, round, time</td><td>Nothing</td></tr>
-				</tbody>
-			</table>
-		</div>
-		<p>
-			Encrypting needs no network at all: the browser has the quicknet public key built in. Decrypting fetches one public signature from a drand
-			relay.
-		</p>
+			<h2 id="who-sees-what">Who sees what</h2>
+			<div class="table-wrap">
+				<table>
+					<thead><tr><th></th><th>Website</th><th>JSON API and original endpoints</th><th>Offline tool</th></tr></thead>
+					<tbody>
+						<tr><th>Where encryption happens</th><td>In your browser</td><td>On our Cloudflare Worker</td><td>On your computer</td></tr>
+						<tr><th>We see your message</th><td>No</td><td><strong>Yes</strong>, in memory during the request</td><td>No</td></tr>
+						<tr><th>We see the encrypted text</th><td>No</td><td>Yes, in memory during the request</td><td>No</td></tr>
+						<tr><th>drand relays see</th><td>Your IP address and the round you decrypt</td><td>Our Worker asking for the round</td><td>Your IP address and the round</td></tr>
+						<tr><th>Shown in recent activity</th><td>Type, round and time, reported by your browser</td><td>Type, round and time</td><td>Nothing</td></tr>
+					</tbody>
+				</table>
+			</div>
+			<p>Encrypting needs no network connection, because the quicknet public key is built into the page. Decrypting downloads one public signature from a drand relay.</p>
 
-		<h3 id="privacy">What we store</h3>
-		<p>
-			One row per event in a Cloudflare D1 database: <code>encrypt</code> or <code>decrypt</code>, website or API, the server time, the drand
-			round and its unlock time. That's what the <a href="/feed">public feed</a> shows. We don't store or log plaintext, ciphertext, IP addresses,
-			user agents or cookies, and the site has no analytics or third-party scripts. Like any site on Cloudflare, requests pass through Cloudflare's
-			network, which processes connection data for security and abuse prevention.
-		</p>
+			<h3 id="privacy">What we store</h3>
+			<p>
+				We store one row per encryption or decryption in a Cloudflare D1 database: encrypt or decrypt, website or API, the server time, the drand
+				round and its unlock time. The <a href="/#activity">recent activity</a> list on the homepage shows these rows. We do not store or log your
+				message, the encrypted text, IP addresses, browser details or cookies. The site has no analytics and no third-party scripts. Like every
+				site on Cloudflare, requests pass through Cloudflare's network, which processes connection data for security.
+			</p>
 
-		<h2 id="cli">Doing it yourself</h2>
-		<p>
-			For anything important, encrypt locally. With <a href="https://github.com/thibmeu/drand-rs/releases">dee</a> (prebuilt binaries for Linux,
-			macOS and Windows):
-		</p>
-		<pre><code># once: point dee at quicknet
+			<h2 id="offline"><span id="cli"></span>Encrypt offline</h2>
+			<p>
+				For anything important, encrypt on your own computer. Then your message never touches a website. With
+				<a href="https://github.com/thibmeu/drand-rs/releases">dee</a> (prebuilt for Linux, macOS and Windows):
+			</p>
+			<pre><code># once: point dee at quicknet
 dee remote add quicknet https://api.drand.sh/{QUICKNET.hash}
 
 # encrypt for 30 days (also accepts a round number or a date like "2030-01-01 00:00:00")
 dee crypt -a -r 30d message.txt > message.age
 
-# decrypt once the round has passed
+# decrypt after the unlock time
 dee crypt --decrypt message.age</code></pre>
-		<p>Files made this way decrypt on this site, and vice versa.</p>
+			<p>Files made with dee open on this site, and files made here open with dee.</p>
 
-		<h2 id="limitations">Limitations</h2>
-		<p>Read these before you lock up anything that matters.</p>
-		<ul>
-			<li>
-				<strong>It depends on drand.</strong> Decryption needs drand to publish your round. If quicknet pauses, the message stays locked until it
-				resumes. If the network is ever shut down before your unlock time, the message can never be decrypted. Quicknet has run since
-				{genesis.slice(0, 10)}, but nobody can promise decades, so be careful with very long locks. We allow up to
-				{LIMITS.maxUnlockSeconds / (365 * 86400)} years.
-			</li>
-			<li>
-				<strong>There is no early decryption.</strong> Not for you, not for us, and not if you change your mind. There's no reset and no recovery.
-				If you lose the ciphertext, the message is gone.
-			</li>
-			<li>
-				<strong>It trusts a threshold of drand operators.</strong> The scheme holds as long as fewer than the threshold of League of Entropy nodes
-				collude. If enough of them conspired, they could compute future signatures and decrypt early. See drand's <a href="https://docs.drand.love/docs/timelock-encryption/#️-security-assumptions">security assumptions</a>.
-			</li>
-			<li>
-				<strong>The server-side API sees your plaintext.</strong> We don't store or log it, but you have to take our word for that. The website
-				and CLI don't have this problem.
-			</li>
-			<li>
-				<strong>The website trusts the code we serve.</strong> Browser-side encryption protects you from us storing your message, but not from a
-				compromised version of this site serving malicious JavaScript. For high-stakes secrets, use a local CLI.
-			</li>
-			<li>
-				<strong>Round granularity.</strong> Unlock times snap up to the next {QUICKNET.period}-second round. Unlocking follows drand's clock, not
-				your device's. A wrong system clock only changes the countdown you see.
-			</li>
-			<li>
-				<strong>No authorship or secrecy of metadata.</strong> Anyone can encrypt anything to any round, so a ciphertext doesn't prove who wrote it
-				or when. The unlock round and the approximate message size are visible to anyone holding the ciphertext.
-			</li>
-			<li>
-				<strong>Not post-quantum.</strong> The scheme relies on pairings over BLS12-381, which a large quantum computer would break.
-			</li>
-			<li>
-				<strong>The feed is best-effort.</strong> Website events are reported by browsers and can't be verified, so treat the counts as
-				indicative.
-			</li>
-			<li>
-				<strong>Size limits.</strong> The JSON API accepts up to {LIMITS.plaintextBytes / 1024} KiB of plaintext and the original endpoints up to
-				{LIMITS.legacyBodyBytes / 1024 / 1024} MiB. Use a local CLI for larger files.
-			</li>
-		</ul>
+			<h2 id="limitations">Limitations</h2>
+			<p>Read these before you lock up anything that matters.</p>
+			<ul>
+				<li>
+					<strong>It depends on drand.</strong> Your message opens only when drand publishes your round. If quicknet pauses, the message stays
+					locked until it restarts. If drand shuts down for good before your unlock time, nobody can ever open the message. Quicknet has run since
+					{genesis.slice(0, 10)}, but nobody can promise it will run for decades, so be careful with long locks. This site allows up to
+					{maxYears} years.
+				</li>
+				<li>
+					<strong>Nobody can open it early.</strong> Not you, not us, and not if you change your mind. There is no reset and no recovery. If you
+					lose the encrypted text, the message is gone.
+				</li>
+				<li>
+					<strong>You trust most drand members.</strong> The lock holds as long as fewer than the threshold of League of Entropy members work
+					together to cheat. If enough of them did, they could create future keys and open messages early. See drand's
+					<a href="https://docs.drand.love/docs/timelock-encryption/#️-security-assumptions">security assumptions</a>.
+				</li>
+				<li>
+					<strong>The API sees your message.</strong> The JSON API encrypts on our server, so your message passes through it. We don't store or
+					log it, but you have to take our word for that. The website and offline tools don't have this problem.
+				</li>
+				<li>
+					<strong>The website trusts the code we send.</strong> The website encrypts in your browser, so we never receive your message. But if
+					someone took over this site, they could send code that leaks it. For high-stakes secrets, use an offline tool.
+				</li>
+				<li>
+					<strong>Times round up to {QUICKNET.period} seconds.</strong> Unlock times move up to the next round. Unlocking follows drand's clock,
+					not your device's. A wrong device clock only changes the countdown you see.
+				</li>
+				<li>
+					<strong>Some details are public.</strong> Anyone can encrypt anything to any round, so an encrypted message doesn't prove who wrote it
+					or when. Anyone with the encrypted text can see its unlock round and roughly how long the message is.
+				</li>
+				<li><strong>Not quantum-safe.</strong> The method relies on pairings over the BLS12-381 curve, which a large quantum computer could break.</li>
+				<li>
+					<strong>Activity numbers are approximate.</strong> Browsers report website events themselves, and we can't check them. Treat the counts
+					as a rough guide.
+				</li>
+				<li>
+					<strong>Size limits.</strong> The JSON API takes messages up to {LIMITS.plaintextBytes / 1024} KiB, and the original endpoints take up to
+					{LIMITS.legacyBodyBytes / 1024 / 1024} MiB. Use an offline tool for bigger files.
+				</li>
+			</ul>
 
-		<h2 id="reading">Further reading</h2>
-		<ul>
-			<li><a href="https://docs.drand.love/docs/timelock-encryption/">drand: timelock encryption</a> and its <a href="https://docs.drand.love/docs/timelock-encryption/#-use-cases">use cases</a></li>
-			<li><a href="https://eprint.iacr.org/2023/189">tlock: Practical Timelock Encryption from Threshold BLS</a> (paper)</li>
-			<li><a href="https://en.wikipedia.org/wiki/League_of_Entropy">League of Entropy</a> on Wikipedia</li>
-			<li><a href="https://blog.cloudflare.com/harnessing-office-chaos">Harnessing office chaos</a>: Cloudflare on randomness and timelock encryption</li>
-			<li><a href="https://gwern.net/self-decrypting">Gwern: Time-lock encryption</a></li>
-			<li><a href="https://people.csail.mit.edu/rivest/pubs/RSW96.pdf">Rivest, Shamir and Wagner: Time-lock puzzles and timed-release crypto</a> (1996)</li>
-			<li><a href="https://web.archive.org/web/20231207001505/http://www.eecs.harvard.edu/~cat/tlc.pdf">Rabin and Thorpe: Time-lapse cryptography</a> (archived)</li>
-			<li><a href="https://sarcophagus.io/">Sarcophagus</a>: a dead man's switch built on smart contracts</li>
-		</ul>
+			<h2 id="reading">Further reading</h2>
+			<ul>
+				<li><a href="https://docs.drand.love/docs/timelock-encryption/">drand: timelock encryption</a> and its <a href="https://docs.drand.love/docs/timelock-encryption/#-use-cases">use cases</a></li>
+				<li><a href="https://eprint.iacr.org/2023/189">tlock: Practical Timelock Encryption from Threshold BLS</a> (paper)</li>
+				<li><a href="https://en.wikipedia.org/wiki/League_of_Entropy">League of Entropy</a> on Wikipedia</li>
+				<li><a href="https://blog.cloudflare.com/harnessing-office-chaos">Harnessing office chaos</a>: Cloudflare on randomness and timelock encryption</li>
+				<li><a href="https://gwern.net/self-decrypting">Gwern: Time-lock encryption</a></li>
+				<li><a href="https://people.csail.mit.edu/rivest/pubs/RSW96.pdf">Rivest, Shamir and Wagner: Time-lock puzzles and timed-release crypto</a> (1996)</li>
+				<li><a href="https://web.archive.org/web/20231207001505/http://www.eecs.harvard.edu/~cat/tlc.pdf">Rabin and Thorpe: Time-lapse cryptography</a> (archived)</li>
+				<li><a href="https://sarcophagus.io/">Sarcophagus</a>: a dead man's switch built on smart contracts</li>
+			</ul>
+		</article>
+
+		<aside class="layout-side sticky toc-side" aria-label="On this page">
+			<nav class="Box">
+				<div class="Box-header compact"><h2 class="Box-title">On this page</h2></div>
+				<ul class="toc">
+					{toc.map(([id, label]) => <li><a href={`#${id}`}>{label}</a></li>)}
+				</ul>
+			</nav>
+		</aside>
 	</div>
 </Base>
+
+<style>
+	@media (max-width: 1011px) {
+		.toc-side {
+			display: none;
+		}
+	}
+</style>

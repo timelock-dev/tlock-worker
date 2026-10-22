@@ -1,0 +1,36 @@
+---
+interface Props {
+	size?: number;
+}
+const { size = 24 } = Astro.props;
+---
+
+<a class="logo" href="/" style={`--logo-size: ${size}px`}>
+	<svg class="logo-mark" viewBox="0 0 24 24" width={size} height={size} aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+		><circle cx="12" cy="16" r="1"></circle><rect x="3" y="10" width="18" height="12" rx="2"></rect><path d="M7 10V7a5 5 0 0 1 10 0v3"></path></svg
+	><span class="logo-word">timelock<span class="logo-tld">.dev</span></span>
+</a>
+
+<style>
+	.logo {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		color: var(--text);
+		font-weight: 600;
+		font-size: calc(var(--logo-size) * 0.8);
+		line-height: 1;
+		text-decoration: none;
+	}
+	.logo:hover {
+		text-decoration: none;
+	}
+	.logo-mark {
+		flex: none;
+		color: var(--green);
+	}
+	.logo-tld {
+		color: var(--muted);
+		font-weight: 400;
+	}
+</style>

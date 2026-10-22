@@ -1,26 +1,42 @@
-<section id="decrypt" aria-labelledby="decrypt-title">
-	<h2 id="decrypt-title">Decrypt</h2>
-	<form id="decrypt-form" novalidate>
-		<div class="field">
-			<label for="decrypt-input">Time-locked message</label>
-			<textarea id="decrypt-input" class="code" rows="7" required spellcheck="false" placeholder="-----BEGIN AGE ENCRYPTED FILE-----&#10;…&#10;-----END AGE ENCRYPTED FILE-----"></textarea>
-		</div>
-		<p class="status" data-status hidden aria-live="polite"></p>
-		<div class="row">
-			<button class="btn" type="submit">Decrypt</button>
-			<span class="hint">Fetches one public drand signature; the message stays in your browser.</span>
-		</div>
-	</form>
+<section id="decrypt" class="Box" aria-labelledby="decrypt-title">
+	<div class="Box-header compact">
+		<h2 class="Box-title" id="decrypt-title">Decrypt a message</h2>
+		<span class="small muted">Works after the unlock time</span>
+	</div>
+	<div class="Box-body">
+		<form id="decrypt-form" novalidate>
+			<div class="field">
+				<label for="decrypt-input">Encrypted message</label>
+				<textarea id="decrypt-input" class="code" rows="5" required spellcheck="false" placeholder="-----BEGIN AGE ENCRYPTED FILE-----&#10;…&#10;-----END AGE ENCRYPTED FILE-----"></textarea>
+			</div>
+			<p class="status" data-status hidden aria-live="polite"></p>
+			<div class="row">
+				<button class="btn" type="submit">Decrypt</button>
+				<span class="hint">Your browser downloads the public drand key for that round. The message stays on this page.</span>
+			</div>
+		</form>
 
-	<div data-output hidden>
-		<h3>Plaintext</h3>
-		<pre data-plaintext></pre>
-		<div class="row">
-			<button class="btn" type="button" data-copy>Copy</button>
-			<button class="btn secondary" type="button" data-download hidden>Download file</button>
+		<div data-output hidden>
+			<h3 class="result-title">Message</h3>
+			<pre data-plaintext></pre>
+			<div class="row">
+				<button class="btn" type="button" data-copy>Copy</button>
+				<button class="btn secondary" type="button" data-download hidden>Download file</button>
+			</div>
 		</div>
 	</div>
 </section>
+
+<style>
+	.result-title {
+		margin-top: 16px;
+	}
+	pre[data-plaintext] {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		font-size: 14px;
+	}
+</style>
 
 <script>
 	import { createDrandClient, DrandUnavailableError } from "../lib/drand";
@@ -48,8 +64,8 @@
 		if (!info) return;
 		const when = `${formatLocal(info.unlockAt)} · ${formatUtc(info.unlockAt)}`;
 		const left = (info.unlockAt - Date.now()) / 1000;
-		if (left > 0) show("locked", `Locked until ${when}. Opens in ${formatCountdown(left)} (drand round #${info.round.toLocaleString("en-US")}).`);
-		else show("ok", `Unlocked since ${when} (${formatRelative(info.unlockAt)}). Ready to decrypt.`);
+		if (left > 0) show("locked", `Locked until ${when}. It opens in ${formatCountdown(left)} (drand round #${info.round.toLocaleString("en-US")}).`);
+		else show("ok", `Unlocked at ${when} (${formatRelative(info.unlockAt)}). You can decrypt it now.`);
 	}
 
 	function inspect() {
@@ -74,7 +90,7 @@
 
 	form.addEventListener("submit", async (event) => {
 		event.preventDefault();
-		if (!input.value.trim()) return show("err", "Paste a time-locked message first.");
+		if (!input.value.trim()) return show("err", "Paste an encrypted message first.");
 		const button = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
 		button.disabled = true;
 		button.textContent = "Decrypting…";
@@ -87,7 +103,7 @@
 			} catch {
 				text = null;
 			}
-			$("[data-plaintext]").textContent = text ?? `Binary content (${plaintext.byteLength.toLocaleString("en-US")} bytes). Use “Download file”.`;
+			$("[data-plaintext]").textContent = text ?? `This is a file, not text (${plaintext.byteLength.toLocaleString("en-US")} bytes). Use “Download file”.`;
 			$("[data-copy]").hidden = text === null;
 			$("[data-download]").hidden = text !== null;
 			output.hidden = false;
@@ -95,7 +111,7 @@
 			reportEvent("decrypt", result.info.round);
 		} catch (err) {
 			if (err instanceof TooEarlyError) renderInfo();
-			else if (err instanceof DrandUnavailableError) show("err", "Couldn't reach the drand network to fetch the round signature. Try again in a moment.");
+			else if (err instanceof DrandUnavailableError) show("err", "Could not reach drand to get the key for this round. Try again in a moment.");
 			else if (err instanceof InvalidCiphertextError || err instanceof UnsupportedChainError) show("err", err.message);
 			else show("err", `Decryption failed: ${err instanceof Error ? err.message : String(err)}`);
 		} finally {
