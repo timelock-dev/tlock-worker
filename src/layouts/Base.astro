@@ -14,6 +14,7 @@ const { title, description } = Astro.props;
 const path = Astro.url.pathname.replace(/(\.html)?\/?$/, "") || "/";
 const nav: { href: string; label: string; icon: IconName }[] = [
 	{ href: "/how-it-works", label: "How it works", icon: "book" },
+	{ href: "/faq", label: "FAQ", icon: "question" },
 	{ href: "/docs", label: "API", icon: "code" },
 ];
 const repo = "https://github.com/timelock-dev/tlock-worker";

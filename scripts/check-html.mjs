@@ -1,7 +1,7 @@
 // Scans rendered pages for words glued to numbers or to inline elements ("since2023", "up to<code>100</code>").
 // Usage: node scripts/check-html.mjs [base URL], against a running `npm run preview`.
 const base = process.argv[2] ?? "http://127.0.0.1:4328";
-const pages = ["/", "/docs", "/how-it-works", "/no-such-page"];
+const pages = ["/", "/docs", "/how-it-works", "/faq", "/no-such-page"];
 // Technical names that legitimately end in digits.
 const allowed = /^(BLS12|ChaCha20|Poly1305|G1|utf8|base64|RFC9380|v1|sha256)$/i;
 const inline = "a|code|strong|em|time|kbd";

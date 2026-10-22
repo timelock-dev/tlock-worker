@@ -1,0 +1,119 @@
+---
+import Base from "../layouts/Base.astro";
+import { LIMITS } from "../lib/api";
+import { QUICKNET } from "../lib/drand";
+
+const maxYears = LIMITS.maxUnlockSeconds / (365 * 86400);
+const toc = [
+	["prove", "Can I prove I knew something early?"],
+	["encrypted-when", "Can you tell when a message was encrypted?"],
+	["who", "Does it prove who wrote it?"],
+	["unlock-time", "Can I see the unlock time without decrypting?"],
+	["notes", "What are the lines above the encrypted block?"],
+	["other-tools", "Will other tools open it?"],
+	["early", "Can anyone open it early?"],
+	["lost", "What if I lose the encrypted text?"],
+	["drand-stops", "What if drand stops?"],
+	["see-message", "Can you see my message?"],
+];
+---
+
+<Base
+	title="FAQ · timelock.dev"
+	description="Short answers about timelock.dev: proving you knew something early, unlock times, the plain notes above the encrypted block, other tools, and what can go wrong."
+>
+	<div class="container layout">
+		<article class="layout-main markdown">
+			<header class="page-head">
+				<h1>FAQ</h1>
+				<p class="lead">Short answers. For the details, see <a href="/how-it-works">How it works</a> and its <a href="/how-it-works#limitations">limitations</a>.</p>
+			</header>
+
+			<h2 id="prove">Can I prove I knew something early?</h2>
+			<p>Yes, with one extra step. The encrypted text can't show when it was made, so a public timestamp has to do that part:</p>
+			<ol>
+				<li>Encrypt your message here, with an unlock time after the event.</li>
+				<li>Before the unlock time, post the encrypted text somewhere public that records the date, such as a social post, a git commit or a gist.</li>
+				<li>After the unlock time, anyone can paste it into this site and read it.</li>
+			</ol>
+			<p>The public timestamp proves <em>when</em> you had it. The unlock proves <em>what</em> it said. Nobody, including you, can read or change the message in between.</p>
+
+			<h2 id="encrypted-when">Can you tell when a message was encrypted?</h2>
+			<p>
+				No. The encrypted text contains only the drand round it unlocks at and the drand chain hash. There is no "encrypted at" time, before or
+				after decryption. Our <a href="/#activity">activity list</a> records when something was encrypted, but it can't be linked to any message.
+				To prove when you wrote something, use a public timestamp as <a href="#prove">described above</a>.
+			</p>
+
+			<h2 id="who">Does it prove who wrote it?</h2>
+			<p>No. Anyone can encrypt anything to any round. Posting from your own account, or signing the post, is what ties it to you.</p>
+
+			<h2 id="unlock-time">Can I see the unlock time without decrypting?</h2>
+			<p>
+				Yes. The round is in the header of the encrypted text, and anyone can read it. Paste it into <a href="/#decrypt">Decrypt</a>, and the
+				site shows the unlock time right away. You can't hide it.
+			</p>
+
+			<h2 id="notes">What are the lines above the encrypted block?</h2>
+			<p>Optional plain notes. When you encrypt, two checkboxes add them, and both are on by default:</p>
+			<pre><code>Unlock at https://timelock.dev
+Unlocks: Sat, Nov 21, 2026 9:08 AM EST (2026-11-21 14:08:27 UTC)
+
+-----BEGIN AGE ENCRYPTED FILE-----
+…</code></pre>
+			<p>
+				They tell a reader where to go and when. <strong>They are not encrypted or protected.</strong> Anyone can edit or delete them, so trust the
+				round inside the block, not the note. When you paste, this site reads the round from the block and warns you if a note says a different
+				time.
+			</p>
+
+			<h2 id="other-tools">Will other tools open it?</h2>
+			<p>
+				The block, yes. <code>dee</code>, <code>tle</code> and other tlock tools open it, and this site opens theirs. But
+				<strong>tools other than this site need just the BEGIN…END block.</strong> We tested <code>dee</code>, Go <code>tle</code> and
+				<code>age</code>, Rust <code>tlock_age</code> and <code>tlock-js</code>, and all of them reject any text before or after the block. Use
+				<strong>Copy block only</strong>, turn the notes off, or strip them:
+			</p>
+			<pre><code>sed -n '/^-----BEGIN AGE/,/^-----END AGE/p' message.txt | dee crypt --decrypt</code></pre>
+			<p>This site and the <a href="/docs#decrypt">API</a> accept the text with or without notes.</p>
+
+			<h2 id="early">Can anyone open it early?</h2>
+			<p>
+				No. Not you, not us. The key for a round doesn't exist until drand publishes it. The only way around that is for most
+				<a href="https://www.cloudflare.com/leagueofentropy/">League of Entropy</a> members to cheat together.
+			</p>
+
+			<h2 id="lost">What if I lose the encrypted text?</h2>
+			<p>The message is gone. We don't keep a copy, and there is no recovery.</p>
+
+			<h2 id="drand-stops">What if drand stops?</h2>
+			<p>
+				The message stays locked until drand quicknet publishes your round. If drand shut down for good, nobody could open it. Locks of up to
+				{maxYears} years are allowed, but be careful with long ones. A new round arrives every {QUICKNET.period} seconds.
+			</p>
+
+			<h2 id="see-message">Can you see my message?</h2>
+			<p>
+				On the website, no: it encrypts in your browser. The <a href="/docs">API</a> encrypts on our server, so it sees your message in memory. We
+				don't store or log it. For anything sensitive, <a href="/how-it-works#offline">encrypt offline</a>.
+			</p>
+		</article>
+
+		<aside class="layout-side sticky toc-side" aria-label="On this page">
+			<nav class="Box">
+				<div class="Box-header compact"><h2 class="Box-title">On this page</h2></div>
+				<ul class="toc">
+					{toc.map(([id, label]) => <li><a href={`#${id}`}>{label}</a></li>)}
+				</ul>
+			</nav>
+		</aside>
+	</div>
+</Base>
+
+<style>
+	@media (max-width: 1011px) {
+		.toc-side {
+			display: none;
+		}
+	}
+</style>
