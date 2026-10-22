@@ -11,6 +11,5 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"
 database_name = "timelock-events"
-# Replace with the id printed by `npx wrangler d1 create timelock-events` before deploying.
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "d53294f6-644e-4afc-82cb-40f0e421d1c9"
 migrations_dir = "migrations"
