@@ -97,14 +97,13 @@ const presets: [amount: number, unit: string, label: string][] = [
 		</form>
 
 		<div data-result hidden>
-			<h3 class="result-title">Your encrypted message</h3>
-			<p class="status locked" data-result-status></p>
+			<div data-result-status></div>
 			<label for="ciphertext" class="sr-only">Encrypted message</label>
 			<textarea id="ciphertext" class="code" rows="7" readonly></textarea>
 			<div class="row result-actions">
 				<button class="btn" type="button" data-copy>Copy</button>
 				<button class="btn secondary" type="button" data-download>Download .age file</button>
-				<button class="btn secondary" type="button" data-to-decrypt>Open in Decrypt</button>
+				<button class="btn secondary" type="button" data-to-decrypt><Icon name="arrowDown" />Paste into Decrypt below</button>
 				<button class="btn secondary" type="button" data-again>Encrypt another</button>
 			</div>
 			<p class="hint">Anyone with this text can read the message after the unlock time. Nobody can read it before then. We don't keep a copy, so save it somewhere safe.</p>
@@ -139,7 +138,7 @@ const presets: [amount: number, unit: string, label: string][] = [
 		max-width: 100%;
 		padding: 8px;
 		border: 1px solid var(--border);
-		border-radius: var(--radius);
+		border-radius: var(--radius-lg);
 	}
 	.calendar-head {
 		display: flex;
@@ -187,13 +186,13 @@ const presets: [amount: number, unit: string, label: string][] = [
 	.feedback {
 		margin: 0 0 16px;
 		padding: 12px 16px;
-		border: 1px solid var(--border);
-		border-left: 4px solid var(--green);
-		border-radius: var(--radius);
-		background: var(--canvas-subtle);
+		border: 1px solid var(--mint-border);
+		border-radius: var(--radius-lg);
+		background: var(--mint);
 	}
 	.feedback.is-invalid {
-		border-left-color: var(--border);
+		border-color: var(--border);
+		background: var(--canvas-subtle);
 		color: var(--muted);
 	}
 	.feedback-line {
@@ -275,7 +274,8 @@ const presets: [amount: number, unit: string, label: string][] = [
 <script>
 	import { createDrandClient, roundForTime, roundTime } from "../lib/drand";
 	import { encrypt } from "../lib/tlock";
-	import { detectTimeZone, formatCountdown, formatDuration, formatLocal, formatUtc, zonedParts } from "../lib/time";
+	import { encryptedPanelHtml } from "../lib/status";
+	import { detectTimeZone, formatDuration, formatLocal, formatUtc, zonedParts } from "../lib/time";
 	import { addMonths, compareDays, dateTarget, durationTarget, MAX_LOCK_SECONDS, monthGrid, todayIn, timeZoneList, type Day, type Target } from "../lib/unlock";
 	import { reportEvent } from "../scripts/report";
 
@@ -295,6 +295,8 @@ const presets: [amount: number, unit: string, label: string][] = [
 
 	let mode: "duration" | "date" = "duration";
 	let lockedUntil = 0;
+	let lockedRound = 0;
+	let resultHtml = "";
 	let zone = browserZone;
 	let selected: Day | null = null;
 	let view = { year: 0, month: 0 };
@@ -422,11 +424,8 @@ const presets: [amount: number, unit: string, label: string][] = [
 	}
 
 	function renderResult() {
-		const left = (lockedUntil - Date.now()) / 1000;
-		const when = `${formatLocal(lockedUntil)} · ${formatUtc(lockedUntil)}`;
-		const status = $("[data-result-status]");
-		status.textContent = left > 0 ? `Locked until ${when}. It opens in ${formatCountdown(left)}.` : `Unlocked at ${when}. Paste it into Decrypt to read it.`;
-		status.className = left > 0 ? "status locked" : "status ok";
+		const html = encryptedPanelHtml(lockedUntil, lockedRound, Date.now());
+		if (html !== resultHtml) $("[data-result-status]").innerHTML = resultHtml = html;
 	}
 
 	form.addEventListener("submit", async (event) => {
@@ -450,6 +449,7 @@ const presets: [amount: number, unit: string, label: string][] = [
 			const round = roundForTime(t.ms);
 			const ciphertext = await encrypt(new TextEncoder().encode(message.value), round, client);
 			lockedUntil = roundTime(round);
+			lockedRound = round;
 			$<HTMLTextAreaElement>("#ciphertext").value = ciphertext;
 			message.value = "";
 			form.hidden = true;

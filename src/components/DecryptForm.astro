@@ -9,6 +9,7 @@
 				<label for="decrypt-input">Encrypted message</label>
 				<textarea id="decrypt-input" class="code" rows="5" required spellcheck="false" placeholder="-----BEGIN AGE ENCRYPTED FILE-----&#10;…&#10;-----END AGE ENCRYPTED FILE-----"></textarea>
 			</div>
+			<div data-lock-panel aria-live="polite" hidden></div>
 			<p class="status" data-status hidden aria-live="polite"></p>
 			<div class="row">
 				<button class="btn" type="submit">Decrypt</button>
@@ -41,7 +42,7 @@
 <script>
 	import { createDrandClient, DrandUnavailableError } from "../lib/drand";
 	import { decrypt, inspectCiphertext, InvalidCiphertextError, TooEarlyError, UnsupportedChainError, type CiphertextInfo } from "../lib/tlock";
-	import { formatCountdown, formatLocal, formatRelative, formatUtc } from "../lib/time";
+	import { decryptStatePanelHtml } from "../lib/status";
 	import { reportEvent } from "../scripts/report";
 
 	const section = document.querySelector<HTMLElement>("#decrypt")!;
@@ -54,24 +55,34 @@
 	let info: CiphertextInfo | null = null;
 	let plaintext: Uint8Array | null = null;
 
-	function show(kind: "" | "ok" | "err" | "locked", text: string) {
+	const lockPanel = $("[data-lock-panel]");
+	let panelHtml = "";
+
+	function show(kind: "" | "ok" | "err", text: string) {
 		status.className = `status ${kind}`.trim();
 		status.textContent = text;
 		status.hidden = !text;
+		if (text) hidePanel();
+	}
+
+	function hidePanel() {
+		lockPanel.hidden = true;
+		panelHtml = "";
 	}
 
 	function renderInfo() {
 		if (!info) return;
-		const when = `${formatLocal(info.unlockAt)} · ${formatUtc(info.unlockAt)}`;
-		const left = (info.unlockAt - Date.now()) / 1000;
-		if (left > 0) show("locked", `Locked until ${when}. It opens in ${formatCountdown(left)} (drand round #${info.round.toLocaleString("en-US")}).`);
-		else show("ok", `Unlocked at ${when} (${formatRelative(info.unlockAt)}). You can decrypt it now.`);
+		const html = decryptStatePanelHtml(info.unlockAt, info.round, Date.now());
+		if (html !== panelHtml) lockPanel.innerHTML = panelHtml = html;
+		lockPanel.hidden = false;
+		status.hidden = true;
 	}
 
 	function inspect() {
 		output.hidden = true;
 		const text = input.value.trim();
 		info = null;
+		hidePanel();
 		if (!text) return show("", "");
 		try {
 			info = inspectCiphertext(text);

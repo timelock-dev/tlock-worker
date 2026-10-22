@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { currentRound, QUICKNET, roundForTime, roundTime } from "../src/lib/drand";
 import {
 	formatCountdown,
+	formatApproxDuration,
 	formatDuration,
+	formatFriendly,
 	formatLocal,
 	formatRelative,
 	formatUtc,
@@ -111,6 +113,25 @@ describe("absolute times", () => {
 		expect(formatLocal(t)).toMatch(/Oct 21, 2026, 20:51:03 EDT$/);
 	});
 
+});
+
+describe("friendly formats", () => {
+	it("formats a date and time for sentences", () => {
+		const t = Date.UTC(2026, 10, 21, 13, 51, 6);
+		expect(formatFriendly(t)).toBe("Sat, Nov 21, 2026 at 8:51 AM EST");
+		expect(formatFriendly(t, { timeZone: "UTC" })).toBe("Sat, Nov 21, 2026 at 1:51 PM UTC");
+	});
+
+	it.each([
+		[29 * DAY + 23 * 3600, "30 days"],
+		[90 * 60, "2 hours"],
+		[3600, "1 hour"],
+		[59, "59 seconds"],
+		[0, "1 second"],
+		[400 * DAY, "1 year"],
+	])("approximates %i seconds as %s", (seconds, expected) => {
+		expect(formatApproxDuration(seconds)).toBe(expected);
+	});
 });
 
 describe("time zones", () => {

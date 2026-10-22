@@ -189,3 +189,27 @@ export function zonedTimeToUtc(wall: Omit<WallTime, "second"> & { second?: numbe
 export function detectTimeZone(): string {
 	return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 }
+
+/** Readable date and time with a zone, e.g. "Sat, Nov 21, 2026 at 8:51 AM EST". */
+export function formatFriendly(ms: number, opts: { timeZone?: string; locale?: string } = {}): string {
+	const parts = new Intl.DateTimeFormat(opts.locale ?? "en-US", {
+		weekday: "short",
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+		timeZoneName: "short",
+		timeZone: opts.timeZone,
+	}).formatToParts(ms);
+	const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+	return `${get("weekday")}, ${get("month")} ${get("day")}, ${get("year")} at ${get("hour")}:${get("minute")} ${get("dayPeriod")} ${get("timeZoneName")}`;
+}
+
+/** A duration rounded to its largest unit, e.g. 29 days 23 hours → "30 days", 90 minutes → "2 hours". */
+export function formatApproxDuration(totalSeconds: number): string {
+	const s = Math.max(0, totalSeconds);
+	const unit = UNITS.find((u) => s >= u.seconds) ?? UNITS[UNITS.length - 1];
+	const n = Math.max(1, Math.round(s / unit.seconds));
+	return `${n.toLocaleString("en-US")} ${unit.name}${n === 1 ? "" : "s"}`;
+}
