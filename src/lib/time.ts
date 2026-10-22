@@ -137,15 +137,55 @@ export function parseTimestamp(value: unknown): number | null {
 	return Number.isNaN(ms) ? null : ms;
 }
 
-/** Value for <input type="datetime-local"> in the runtime's local zone. */
-export function toDateTimeLocalValue(ms: number): string {
-	const d = new Date(ms);
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+export interface WallTime {
+	year: number;
+	/** 1–12 */
+	month: number;
+	day: number;
+	hour: number;
+	minute: number;
+	second: number;
 }
 
-/** Parses an <input type="datetime-local"> value as local time. */
-export function parseDateTimeLocal(value: string): number | null {
-	if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(value)) return null;
-	const ms = new Date(value).getTime();
-	return Number.isNaN(ms) ? null : ms;
+const partsFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** The wall-clock date and time of an instant in an IANA time zone. */
+export function zonedParts(ms: number, timeZone: string): WallTime {
+	let fmt = partsFormatters.get(timeZone);
+	if (!fmt) {
+		fmt = new Intl.DateTimeFormat("en-US", {
+			timeZone,
+			hourCycle: "h23",
+			year: "numeric",
+			month: "numeric",
+			day: "numeric",
+			hour: "numeric",
+			minute: "numeric",
+			second: "numeric",
+		});
+		partsFormatters.set(timeZone, fmt);
+	}
+	const get = (type: string) => Number(fmt.formatToParts(ms).find((p) => p.type === type)?.value);
+	return { year: get("year"), month: get("month"), day: get("day"), hour: get("hour"), minute: get("minute"), second: get("second") };
+}
+
+function zoneOffset(ms: number, timeZone: string): number {
+	const p = zonedParts(ms, timeZone);
+	return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - Math.floor(ms / 1000) * 1000;
+}
+
+/**
+ * The instant at which `wall` is shown on clocks in `timeZone`. A time repeated by a DST change resolves to its first occurrence; a time
+ * skipped by one resolves to the same distance past the jump (02:30 on a spring-forward night becomes 03:30).
+ */
+export function zonedTimeToUtc(wall: Omit<WallTime, "second"> & { second?: number }, timeZone: string): number {
+	const asUtc = Date.UTC(wall.year, wall.month - 1, wall.day, wall.hour, wall.minute, wall.second ?? 0);
+	const candidates = [-1, 0, 1].map((d) => asUtc - zoneOffset(asUtc + d * 86400_000, timeZone));
+	const matching = candidates.filter((ms) => zoneOffset(ms, timeZone) === asUtc - ms);
+	return matching.length ? Math.min(...matching) : Math.max(...candidates);
+}
+
+/** The runtime's IANA time zone, e.g. "Europe/Paris". */
+export function detectTimeZone(): string {
+	return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 }

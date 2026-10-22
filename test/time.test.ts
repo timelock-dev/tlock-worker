@@ -7,10 +7,10 @@ import {
 	formatRelative,
 	formatUtc,
 	joinList,
-	parseDateTimeLocal,
 	parseDuration,
 	parseTimestamp,
-	toDateTimeLocalValue,
+	zonedParts,
+	zonedTimeToUtc,
 } from "../src/lib/time";
 
 const DAY = 86400;
@@ -111,12 +111,28 @@ describe("absolute times", () => {
 		expect(formatLocal(t)).toMatch(/Oct 21, 2026, 20:51:03 EDT$/);
 	});
 
-	it("round-trips datetime-local values in the runtime zone", () => {
-		const v = toDateTimeLocalValue(t);
-		expect(v).toBe("2026-10-21T20:51");
-		expect(parseDateTimeLocal(v)).toBe(Date.UTC(2026, 9, 22, 0, 51));
-		expect(parseDateTimeLocal("2026-10-21")).toBeNull();
-		expect(parseDateTimeLocal("nonsense")).toBeNull();
+});
+
+describe("time zones", () => {
+	it("reads the wall clock of an instant in any zone", () => {
+		const t = Date.UTC(2026, 9, 22, 0, 51, 3);
+		expect(zonedParts(t, "Asia/Tokyo")).toEqual({ year: 2026, month: 10, day: 22, hour: 9, minute: 51, second: 3 });
+		expect(zonedParts(t, "America/Los_Angeles")).toEqual({ year: 2026, month: 10, day: 21, hour: 17, minute: 51, second: 3 });
+	});
+
+	it("converts a wall-clock time in a zone to an instant", () => {
+		expect(zonedTimeToUtc({ year: 2030, month: 1, day: 1, hour: 0, minute: 0 }, "UTC")).toBe(Date.UTC(2030, 0, 1));
+		expect(zonedTimeToUtc({ year: 2030, month: 1, day: 1, hour: 9, minute: 0 }, "Asia/Tokyo")).toBe(Date.UTC(2030, 0, 1, 0));
+		expect(zonedTimeToUtc({ year: 2026, month: 7, day: 1, hour: 9, minute: 30 }, "Europe/Paris")).toBe(Date.UTC(2026, 6, 1, 7, 30));
+		expect(zonedTimeToUtc({ year: 2026, month: 12, day: 1, hour: 9, minute: 30 }, "Asia/Kolkata")).toBe(Date.UTC(2026, 11, 1, 4, 0));
+	});
+
+	it("handles daylight saving changes", () => {
+		const ny = (month: number, day: number, hour: number, minute = 0) => zonedTimeToUtc({ year: 2026, month, day, hour, minute }, "America/New_York");
+		expect(ny(11, 1, 5)).toBe(Date.UTC(2026, 10, 1, 10)); // just after fall-back, EST
+		expect(ny(11, 1, 1, 30)).toBe(Date.UTC(2026, 10, 1, 5, 30)); // repeated hour: first occurrence (EDT)
+		expect(ny(3, 8, 2, 30)).toBe(Date.UTC(2026, 2, 8, 7, 30)); // skipped hour: 03:30 EDT
+		expect(ny(3, 8, 12)).toBe(Date.UTC(2026, 2, 8, 16));
 	});
 });
 

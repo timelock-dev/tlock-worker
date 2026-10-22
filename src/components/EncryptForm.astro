@@ -1,158 +1,390 @@
 ---
-const presets: [seconds: number, label: string][] = [
-	[300, "5 min"],
-	[900, "15 min"],
-	[3600, "1 hour"],
-	[6 * 3600, "6 hours"],
-	[86400, "1 day"],
-	[7 * 86400, "1 week"],
-	[30 * 86400, "30 days"],
-	[365 * 86400, "1 year"],
+import Icon from "./Icon.astro";
+import { DURATION_UNITS } from "../lib/unlock";
+
+const presets: [amount: number, unit: string, label: string][] = [
+	[5, "minutes", "5 min"],
+	[1, "hours", "1 hour"],
+	[1, "days", "1 day"],
+	[7, "days", "1 week"],
+	[30, "days", "30 days"],
+	[365, "days", "1 year"],
 ];
 ---
 
-<section id="encrypt" aria-labelledby="encrypt-title">
-	<h2 id="encrypt-title">Encrypt</h2>
-	<form id="encrypt-form" novalidate>
-		<div class="field">
-			<label for="message">Message</label>
-			<textarea id="message" name="message" rows="4" required placeholder="Write something your future self (or someone else) should read later…"></textarea>
-		</div>
-
-		<fieldset class="field unlock">
-			<legend>Unlock after</legend>
-			<div class="tabs" role="tablist" aria-label="How to choose the unlock time">
-				<button type="button" role="tab" id="tab-duration" aria-selected="true" aria-controls="panel-duration" data-mode="duration">Duration</button>
-				<button type="button" role="tab" id="tab-date" aria-selected="false" aria-controls="panel-date" data-mode="date">Date &amp; time</button>
+<section id="encrypt" class="Box" aria-labelledby="encrypt-title">
+	<div class="Box-header compact">
+		<h2 class="Box-title" id="encrypt-title">Encrypt a message</h2>
+		<span class="small muted">Runs in your browser</span>
+	</div>
+	<div class="Box-body">
+		<form id="encrypt-form" novalidate>
+			<div class="field">
+				<label for="message">Message</label>
+				<textarea id="message" name="message" rows="3" required placeholder="Write a message to read later."></textarea>
+				<p class="status err message-error" data-message-error role="alert" hidden>Write a message to encrypt.</p>
 			</div>
 
-			<div id="panel-duration" role="tabpanel" aria-labelledby="tab-duration">
-				<div class="chips" aria-label="Presets">
-					{
-						presets.map(([s, label]) => (
-							<button type="button" class="chip" data-seconds={s} aria-pressed={s === 300 ? "true" : "false"}>
-								{label}
-							</button>
-						))
-					}
+			<fieldset class="field">
+				<legend>When can it be opened?</legend>
+				<div class="segmented" role="tablist" aria-label="How to choose the unlock time">
+					<button type="button" role="tab" id="tab-duration" aria-selected="true" aria-controls="panel-duration" data-mode="duration">After a duration</button>
+					<button type="button" role="tab" id="tab-date" aria-selected="false" aria-controls="panel-date" data-mode="date">At a date &amp; time</button>
 				</div>
-				<input type="text" id="duration" name="duration" value="5 minutes" autocomplete="off" spellcheck="false" aria-describedby="duration-hint" />
-				<p class="hint" id="duration-hint">Or type a duration: <code>90s</code>, <code>15m</code>, <code>2h30m</code>, <code>3 days 6 hours</code>.</p>
+
+				<div id="panel-duration" class="panel" role="tabpanel" aria-labelledby="tab-duration">
+					<div class="duration-inputs">
+						<label for="amount" class="sr-only">Amount</label>
+						<input type="number" id="amount" name="amount" value="5" min="1" step="1" inputmode="decimal" />
+						<label for="unit" class="sr-only">Unit</label>
+						<select id="unit" name="unit">
+							{DURATION_UNITS.map((u) => <option value={u.value} selected={u.value === "minutes"}>{u.label}</option>)}
+						</select>
+					</div>
+					<div class="chips" aria-label="Quick picks">
+						{
+							presets.map(([amount, unit, label]) => (
+								<button type="button" class="chip" data-amount={amount} data-unit={unit} aria-pressed={amount === 5 && unit === "minutes" ? "true" : "false"}>
+									{label}
+								</button>
+							))
+						}
+					</div>
+				</div>
+
+				<div id="panel-date" class="panel" role="tabpanel" aria-labelledby="tab-date" hidden>
+					<div class="date-picker">
+						<div class="calendar" data-calendar>
+							<div class="calendar-head">
+								<button type="button" class="icon-btn" data-prev aria-label="Previous month">‹</button>
+								<span class="calendar-title" data-month-title aria-live="polite"></span>
+								<button type="button" class="icon-btn" data-next aria-label="Next month">›</button>
+							</div>
+							<table class="calendar-grid" role="grid">
+								<thead><tr>{["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => <th scope="col">{d}</th>)}</tr></thead>
+								<tbody data-days></tbody>
+							</table>
+						</div>
+						<div class="date-fields">
+							<div>
+								<label for="unlock-time">Time</label>
+								<input type="time" id="unlock-time" name="unlock-time" value="09:00" step="60" />
+							</div>
+							<div>
+								<label for="time-zone">Time zone</label>
+								<select id="time-zone" name="time-zone"></select>
+								<p class="hint" data-tz-hint>Uses your browser's time zone.</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</fieldset>
+
+			<div class="feedback" data-feedback>
+				<div class="feedback-line">
+					<Icon name="clock" />
+					<span>Unlocks <strong data-local>—</strong></span>
+				</div>
+				<div class="feedback-sub muted"><span data-utc>—</span> · <span data-round>—</span></div>
+				<div class="feedback-sub">In <strong data-duration>—</strong></div>
 			</div>
+			<p class="status err" data-error role="alert" hidden></p>
 
-			<div id="panel-date" role="tabpanel" aria-labelledby="tab-date" hidden>
-				<input type="datetime-local" id="unlock-date" name="unlock-date" aria-describedby="date-hint" />
-				<p class="hint" id="date-hint">In your time zone: <span data-tz>local time</span>.</p>
+			<div class="row">
+				<button class="btn" type="submit">Encrypt</button>
+				<span class="hint">Your message is encrypted on this page and is not sent to us.</span>
 			</div>
-		</fieldset>
+		</form>
 
-		<dl class="summary" aria-live="polite" data-summary>
-			<dt>Unlocks</dt>
-			<dd class="big" data-local>—</dd>
-			<dt>UTC</dt>
-			<dd data-utc>—</dd>
-			<dt>In</dt>
-			<dd data-duration>—</dd>
-			<dt>Round</dt>
-			<dd data-round>—</dd>
-		</dl>
-
-		<p class="status err" data-error hidden></p>
-
-		<div class="row">
-			<button class="btn" type="submit">Encrypt in your browser</button>
-			<span class="hint">Your message never leaves this page.</span>
+		<div data-result hidden>
+			<h3 class="result-title">Your encrypted message</h3>
+			<p class="status locked" data-result-status></p>
+			<label for="ciphertext" class="sr-only">Encrypted message</label>
+			<textarea id="ciphertext" class="code" rows="7" readonly></textarea>
+			<div class="row result-actions">
+				<button class="btn" type="button" data-copy>Copy</button>
+				<button class="btn secondary" type="button" data-download>Download .age file</button>
+				<button class="btn secondary" type="button" data-to-decrypt>Open in Decrypt</button>
+				<button class="btn secondary" type="button" data-again>Encrypt another</button>
+			</div>
+			<p class="hint">Anyone with this text can read the message after the unlock time. Nobody can read it before then. We don't keep a copy, so save it somewhere safe.</p>
 		</div>
-	</form>
-
-	<div data-result hidden>
-		<h3>Your time-locked message</h3>
-		<p class="status locked" data-result-status></p>
-		<label for="ciphertext" class="sr-only">Ciphertext</label>
-		<textarea id="ciphertext" class="code" rows="7" readonly></textarea>
-		<div class="row" style="margin-top: 0.75rem">
-			<button class="btn" type="button" data-copy>Copy</button>
-			<button class="btn secondary" type="button" data-download>Download .age</button>
-			<button class="btn secondary" type="button" data-to-decrypt>Open in Decrypt</button>
-			<button class="btn secondary" type="button" data-again>Encrypt another</button>
-		</div>
-		<p class="hint">Anyone with this text can read the message after the unlock time, and nobody can before it. Keep it somewhere safe; we don't store it.</p>
 	</div>
 </section>
 
 <style>
-	fieldset {
-		border: 0;
-		padding: 0;
-		margin: 0 0 1rem;
-		min-width: 0;
+	.panel {
+		margin-top: 4px;
 	}
-	legend {
+	.duration-inputs {
+		display: flex;
+		gap: 8px;
+		margin-bottom: 8px;
+	}
+	.duration-inputs input {
+		width: 120px;
+	}
+	.duration-inputs select {
+		width: auto;
+		min-width: 120px;
+	}
+	.date-picker {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 16px;
+		align-items: flex-start;
+	}
+	.calendar {
+		width: 264px;
+		max-width: 100%;
+		padding: 8px;
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+	}
+	.calendar-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 4px;
+	}
+	.calendar-title {
 		font-weight: 600;
-		margin-bottom: 0.35rem;
-		padding: 0;
+	}
+	.icon-btn {
+		width: 28px;
+		height: 28px;
+		border: 0;
+		border-radius: var(--radius);
+		background: transparent;
+		font-size: 18px;
+		line-height: 1;
+		color: var(--muted);
+		cursor: pointer;
+	}
+	.icon-btn:hover:not(:disabled) {
+		background: var(--canvas-subtle);
+		color: var(--text);
+	}
+	.icon-btn:disabled {
+		opacity: 0.35;
+		cursor: not-allowed;
+	}
+	.calendar-grid {
+		width: 100%;
+		margin: 0;
+		table-layout: fixed;
+	}
+	.date-fields {
+		display: grid;
+		gap: 16px;
+		flex: 1;
+		min-width: 200px;
+	}
+	.date-fields input,
+	.date-fields select {
+		width: 100%;
+	}
+	.feedback {
+		margin: 0 0 16px;
+		padding: 12px 16px;
+		border: 1px solid var(--border);
+		border-left: 4px solid var(--green);
+		border-radius: var(--radius);
+		background: var(--canvas-subtle);
+	}
+	.feedback.is-invalid {
+		border-left-color: var(--border);
+		color: var(--muted);
+	}
+	.feedback-line {
+		display: flex;
+		align-items: flex-start;
+		gap: 8px;
+		font-size: 14px;
+	}
+	.feedback-line .octicon {
+		margin-top: 2px;
+		color: var(--green);
+	}
+	.feedback.is-invalid .octicon {
+		color: var(--muted);
+	}
+	.feedback-sub {
+		margin: 2px 0 0 24px;
+		font-size: 12px;
+	}
+	.result-title {
+		margin-top: 0;
+	}
+	.message-error {
+		margin: 8px 0 0;
+	}
+	.result-actions {
+		margin-top: 8px;
+	}
+</style>
+<style is:global>
+	.calendar-grid tr,
+	.calendar-grid tbody tr:nth-child(2n) {
+		background: none;
+	}
+	.calendar-grid th,
+	.calendar-grid td {
+		padding: 1px;
+		border: 0;
+		text-align: center;
+	}
+	.calendar-grid th {
+		font-size: 12px;
+		font-weight: 400;
+		color: var(--muted);
+		padding-bottom: 4px;
+	}
+	.calendar-grid button {
+		width: 100%;
+		height: 32px;
+		border: 1px solid transparent;
+		border-radius: var(--radius);
+		background: transparent;
+		font-size: 12px;
+		font-variant-numeric: tabular-nums;
+		cursor: pointer;
+	}
+	.calendar-grid button:hover:not(:disabled) {
+		background: var(--canvas-subtle);
+		border-color: var(--border);
+	}
+	.calendar-grid button:disabled {
+		color: #8c959f;
+		text-decoration: line-through;
+		text-decoration-color: #d1d9e0;
+		cursor: not-allowed;
+	}
+	.calendar-grid button.is-today {
+		font-weight: 600;
+		border-color: var(--border);
+	}
+	.calendar-grid button[aria-pressed="true"] {
+		background: var(--link);
+		border-color: var(--link);
+		color: #ffffff;
+		font-weight: 600;
 	}
 </style>
 
 <script>
-	import { createDrandClient, QUICKNET, roundForTime, roundTime } from "../lib/drand";
+	import { createDrandClient, roundForTime, roundTime } from "../lib/drand";
 	import { encrypt } from "../lib/tlock";
-	import { formatCountdown, formatDuration, formatLocal, formatUtc, parseDateTimeLocal, parseDuration, toDateTimeLocalValue } from "../lib/time";
+	import { detectTimeZone, formatCountdown, formatDuration, formatLocal, formatUtc, zonedParts } from "../lib/time";
+	import { addMonths, compareDays, dateTarget, durationTarget, MAX_LOCK_SECONDS, monthGrid, todayIn, timeZoneList, type Day, type Target } from "../lib/unlock";
 	import { reportEvent } from "../scripts/report";
 
 	const form = document.querySelector<HTMLFormElement>("#encrypt-form")!;
 	const section = document.querySelector<HTMLElement>("#encrypt")!;
 	const $ = <T extends HTMLElement>(sel: string) => section.querySelector<T>(sel)!;
-	const durationInput = $<HTMLInputElement>("#duration");
-	const dateInput = $<HTMLInputElement>("#unlock-date");
+	const amountInput = $<HTMLInputElement>("#amount");
+	const unitSelect = section.querySelector("#unit") as unknown as HTMLSelectElement;
+	const timeInput = $<HTMLInputElement>("#unlock-time");
+	const zoneSelect = section.querySelector("#time-zone") as unknown as HTMLSelectElement;
+	const daysBody = $("[data-days]");
 	const errorBox = $("[data-error]");
+	const feedback = $("[data-feedback]");
 	const result = $("[data-result]");
 	const client = createDrandClient();
-	const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+	const browserZone = detectTimeZone();
 
 	let mode: "duration" | "date" = "duration";
 	let lockedUntil = 0;
+	let zone = browserZone;
+	let selected: Day | null = null;
+	let view = { year: 0, month: 0 };
 
-	$("[data-tz]").textContent = timeZone;
-	dateInput.value = toDateTimeLocalValue(Math.ceil((Date.now() + 86400_000) / 3600_000) * 3600_000);
+	zoneSelect.replaceChildren(
+		...timeZoneList(browserZone).map((z) => new Option(z === browserZone ? `${z.replace(/_/g, " ")} (detected)` : z.replace(/_/g, " "), z, z === zone, z === zone)),
+	);
+	const tzHint = $("[data-tz-hint]");
 
-	function target(now: number): { ms: number } | { error: string } {
-		if (mode === "duration") {
-			const seconds = parseDuration(durationInput.value);
-			if (seconds === null) return { error: "Enter a duration like 90s, 15m, 2h30m or 3 days." };
-			if (seconds > 100 * 365 * 86400) return { error: "The longest supported lock is 100 years." };
-			return { ms: now + seconds * 1000 };
-		}
-		const ms = parseDateTimeLocal(dateInput.value);
-		if (ms === null) return { error: "Pick a date and time." };
-		if (ms <= now) return { error: "Pick a moment in the future." };
-		return { ms };
+	{
+		const today = todayIn(zone, Date.now());
+		const tomorrow = new Date(Date.UTC(today.year, today.month - 1, today.day + 1));
+		selected = { year: tomorrow.getUTCFullYear(), month: tomorrow.getUTCMonth() + 1, day: tomorrow.getUTCDate() };
+		view = { year: selected.year, month: selected.month };
+	}
+
+	const monthName = (y: number, m: number) => new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(Date.UTC(y, m - 1, 1));
+	const dayLabel = (d: Day) => new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(Date.UTC(d.year, d.month - 1, d.day));
+	const pad = (n: number) => String(n).padStart(2, "0");
+	let calendarKey = "";
+
+	function renderCalendar(now: number) {
+		const today = todayIn(zone, now);
+		const last = zonedParts(now + MAX_LOCK_SECONDS * 1000, zone);
+		const key = `${zone}|${view.year}-${view.month}|${today.year}-${today.month}-${today.day}|${selected ? `${selected.year}-${selected.month}-${selected.day}` : ""}`;
+		if (key === calendarKey) return;
+		calendarKey = key;
+		$("[data-month-title]").textContent = monthName(view.year, view.month);
+		$<HTMLButtonElement>("[data-prev]").disabled = view.year * 12 + view.month <= today.year * 12 + today.month;
+		$<HTMLButtonElement>("[data-next]").disabled = view.year * 12 + view.month >= last.year * 12 + last.month;
+		daysBody.replaceChildren(
+			...monthGrid(view.year, view.month).map((week) => {
+				const tr = document.createElement("tr");
+				for (const d of week) {
+					const td = document.createElement("td");
+					if (d) {
+						const b = document.createElement("button");
+						b.type = "button";
+						b.textContent = String(d.day);
+						b.setAttribute("aria-label", dayLabel(d));
+						b.disabled = compareDays(d, today) < 0 || compareDays(d, last) > 0;
+						if (compareDays(d, today) === 0) b.classList.add("is-today");
+						b.setAttribute("aria-pressed", String(!!selected && compareDays(d, selected) === 0));
+						b.addEventListener("click", () => {
+							selected = d;
+							render();
+						});
+						td.appendChild(b);
+					}
+					tr.appendChild(td);
+				}
+				return tr;
+			}),
+		);
+	}
+
+	function target(now: number): Target {
+		return mode === "duration" ? durationTarget(amountInput.value, unitSelect.value, now) : dateTarget(selected, timeInput.value, zone, now);
 	}
 
 	function render() {
 		const now = Date.now();
-		const t = target(now);
 		const set = (sel: string, text: string) => ($(sel).textContent = text);
+		if (mode === "date") {
+			renderCalendar(now);
+			const today = todayIn(zone, now);
+			const min = selected && compareDays(selected, today) === 0 ? (({ hour, minute }) => `${pad(hour)}:${pad(minute)}`)(zonedParts(now + 60_000, zone)) : "";
+			if (timeInput.min !== min) timeInput.min = min;
+			tzHint.textContent = zone === browserZone ? "Detected from your browser. Change it if the time is for another place." : `Times are in ${zone.replace(/_/g, " ")}. Your browser is set to ${browserZone.replace(/_/g, " ")}.`;
+		}
+		section.querySelectorAll<HTMLButtonElement>(".chip").forEach((chip) => {
+			chip.setAttribute("aria-pressed", String(chip.dataset.unit === unitSelect.value && Number(chip.dataset.amount) === Number(amountInput.value)));
+		});
+		const t = target(now);
 		if ("error" in t) {
 			for (const sel of ["[data-local]", "[data-utc]", "[data-duration]", "[data-round]"]) set(sel, "—");
-			errorBox.textContent = t.error;
+			feedback.classList.add("is-invalid");
+			if (errorBox.textContent !== t.error) errorBox.textContent = t.error;
 			errorBox.hidden = false;
 			return;
 		}
 		errorBox.hidden = true;
+		feedback.classList.remove("is-invalid");
 		const round = roundForTime(t.ms);
 		const at = roundTime(round);
-		set("[data-local]", formatLocal(at));
+		const shownZone = mode === "date" ? zone : browserZone;
+		set("[data-local]", `${formatLocal(at, { timeZone: shownZone })} (${shownZone.replace(/_/g, " ")})`);
 		set("[data-utc]", formatUtc(at));
-		const human = formatDuration(Math.round((t.ms - now) / 1000));
-		set("[data-duration]", mode === "date" ? `${human} · ${formatCountdown((at - now) / 1000)}` : human);
-		const roundLine = $("[data-round]");
-		const roundId = document.createElement("code");
-		roundId.textContent = `#${round.toLocaleString("en-US")}`;
-		roundLine.replaceChildren(roundId, document.createTextNode(` on drand ${QUICKNET.metadata.beaconID} (a round every ${QUICKNET.period} s)`));
-		section.querySelectorAll<HTMLButtonElement>(".chip").forEach((chip) => {
-			chip.setAttribute("aria-pressed", String(mode === "duration" && Number(chip.dataset.seconds) === parseDuration(durationInput.value)));
-		});
+		set("[data-round]", `drand round #${round.toLocaleString("en-US")}`);
+		set("[data-duration]", formatDuration(Math.round(((mode === "duration" ? t.ms : at) - now) / 1000)));
 	}
 
 	function setMode(next: typeof mode) {
@@ -166,18 +398,34 @@ const presets: [seconds: number, label: string][] = [
 	section.querySelectorAll<HTMLButtonElement>("[role=tab]").forEach((tab) => tab.addEventListener("click", () => setMode(tab.dataset.mode as typeof mode)));
 	section.querySelectorAll<HTMLButtonElement>(".chip").forEach((chip) =>
 		chip.addEventListener("click", () => {
-			durationInput.value = formatDuration(Number(chip.dataset.seconds));
+			amountInput.value = chip.dataset.amount!;
+			unitSelect.value = chip.dataset.unit!;
 			render();
 		}),
 	);
-	durationInput.addEventListener("input", render);
-	dateInput.addEventListener("input", render);
+	$("[data-prev]").addEventListener("click", () => {
+		view = addMonths(view.year, view.month, -1);
+		render();
+	});
+	$("[data-next]").addEventListener("click", () => {
+		view = addMonths(view.year, view.month, 1);
+		render();
+	});
+	zoneSelect.addEventListener("change", () => {
+		zone = zoneSelect.value;
+		render();
+	});
+	$("#message").addEventListener("input", () => ($("[data-message-error]").hidden = true));
+	for (const el of [amountInput, unitSelect, timeInput]) {
+		el.addEventListener("input", render);
+		el.addEventListener("change", render);
+	}
 
 	function renderResult() {
 		const left = (lockedUntil - Date.now()) / 1000;
 		const when = `${formatLocal(lockedUntil)} · ${formatUtc(lockedUntil)}`;
 		const status = $("[data-result-status]");
-		status.textContent = left > 0 ? `Locked until ${when}. Opens in ${formatCountdown(left)}.` : `Unlocked since ${when}. Paste it into Decrypt to read it.`;
+		status.textContent = left > 0 ? `Locked until ${when}. It opens in ${formatCountdown(left)}.` : `Unlocked at ${when}. Paste it into Decrypt to read it.`;
 		status.className = left > 0 ? "status locked" : "status ok";
 	}
 
@@ -186,12 +434,15 @@ const presets: [seconds: number, label: string][] = [
 		const message = $<HTMLTextAreaElement>("#message");
 		const t = target(Date.now());
 		if (!message.value.trim()) {
-			errorBox.textContent = "Write a message to encrypt.";
-			errorBox.hidden = false;
+			$("[data-message-error]").hidden = false;
 			message.focus();
 			return;
 		}
-		if ("error" in t) return render();
+		if ("error" in t) {
+			render();
+			(mode === "duration" ? amountInput : timeInput).focus();
+			return;
+		}
 		const button = form.querySelector<HTMLButtonElement>("button[type=submit]")!;
 		button.disabled = true;
 		button.textContent = "Encrypting…";
@@ -210,7 +461,7 @@ const presets: [seconds: number, label: string][] = [
 			errorBox.hidden = false;
 		} finally {
 			button.disabled = false;
-			button.textContent = "Encrypt in your browser";
+			button.textContent = "Encrypt";
 		}
 	});
 
