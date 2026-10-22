@@ -62,7 +62,10 @@ The app needs no secrets or environment variables. If D1 is missing or its migra
 
 ```
 src/lib/drand.ts      quicknet chain info (pinned), relay client with fallback, round <-> time math
-src/lib/tlock.ts      encrypt/decrypt wrappers around tlock-js, ciphertext inspection, typed errors
+src/lib/tlock.ts      encrypt/decrypt wrappers around tlock-js, ciphertext inspection, armor extraction, typed errors
+src/lib/notes.ts      optional plain notes above the armored block (instructions, unlock time)
+src/lib/status.ts     lock status panels for the encrypt result and decrypt
+src/lib/verify.ts     live drand check behind the header badge
 src/lib/time.ts       duration parsing/formatting, local + UTC formatting, relative times
 src/lib/api.ts        request handlers for every endpoint (framework-free, unit-tested)
 src/lib/events.ts     D1 queries for recent activity and 30-day stats

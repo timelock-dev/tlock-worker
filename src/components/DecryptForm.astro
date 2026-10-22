@@ -8,6 +8,7 @@
 			<div class="field">
 				<label for="decrypt-input">Encrypted message</label>
 				<textarea id="decrypt-input" class="code" rows="5" required spellcheck="false" placeholder="-----BEGIN AGE ENCRYPTED FILE-----&#10;…&#10;-----END AGE ENCRYPTED FILE-----"></textarea>
+				<p class="hint">Paste the whole thing. Notes above or below the block are fine; the site reads only the block.</p>
 			</div>
 			<div data-lock-panel aria-live="polite" hidden></div>
 			<p class="status" data-status hidden aria-live="polite"></p>
@@ -72,7 +73,7 @@
 
 	function renderInfo() {
 		if (!info) return;
-		const html = decryptStatePanelHtml(info.unlockAt, info.round, Date.now());
+		const html = decryptStatePanelHtml(info.unlockAt, info.round, Date.now(), info.notes);
 		if (html !== panelHtml) lockPanel.innerHTML = panelHtml = html;
 		lockPanel.hidden = false;
 		status.hidden = true;

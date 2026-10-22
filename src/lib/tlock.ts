@@ -22,6 +22,8 @@ export interface CiphertextInfo {
 	chainHash: string;
 	unlockAt: number;
 	armored: boolean;
+	/** Non-empty lines found outside the BEGIN…END block. Not authenticated: anyone can edit them. */
+	notes: string[];
 }
 
 /** Converts ciphertext bytes to the latin1 "binary" string tlock-js expects (works for armored and binary age). */
@@ -29,14 +31,33 @@ export function bytesToBinaryString(bytes: Uint8Array): string {
 	return Buffer.from(bytes).toString("binary");
 }
 
-function ageHeader(ciphertext: string): string {
-	const trimmed = ciphertext.trim();
-	if (trimmed.startsWith(ARMOR_HEADER)) {
-		if (!trimmed.endsWith(ARMOR_FOOTER)) throw new InvalidCiphertextError("Armored ciphertext is missing its END line.");
-		const body = trimmed.slice(ARMOR_HEADER.length, -ARMOR_FOOTER.length).replace(/\s+/g, "");
-		return Buffer.from(body, "base64").toString("binary");
+/**
+ * Finds the armored age block in pasted text and returns it on its own, plus any lines around it.
+ * Returns null for binary age or text without a BEGIN line.
+ */
+export function extractArmor(text: string): { block: string; notes: string[] } | null {
+	if (text.startsWith("age-encryption.org/v1\n")) return null;
+	const start = text.indexOf(ARMOR_HEADER);
+	if (start < 0) return null;
+	const end = text.indexOf(ARMOR_FOOTER, start);
+	if (end < 0) throw new InvalidCiphertextError("Armored ciphertext is missing its END line.");
+	const rest = text.slice(end + ARMOR_FOOTER.length);
+	if (text.lastIndexOf(ARMOR_HEADER) !== start || rest.includes(ARMOR_FOOTER)) {
+		throw new InvalidCiphertextError("This text has more than one encrypted block. Paste one at a time.");
 	}
-	return ciphertext;
+	const block = `${text.slice(start, end + ARMOR_FOOTER.length).replace(/\r\n?/g, "\n")}\n`;
+	const notes = `${text.slice(0, start)}\n${rest}`
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter(Boolean);
+	return { block, notes };
+}
+
+function ageHeader(ciphertext: string): string {
+	const armor = extractArmor(ciphertext);
+	if (!armor) return ciphertext;
+	const body = armor.block.trim().slice(ARMOR_HEADER.length, -ARMOR_FOOTER.length).replace(/\s+/g, "");
+	return Buffer.from(body, "base64").toString("binary");
 }
 
 /** Reads the round and chain hash from the tlock stanza of an age header without decrypting. */
@@ -48,11 +69,13 @@ export function inspectCiphertext(ciphertext: string): CiphertextInfo {
 	const match = STANZA.exec(header.slice(0, header.indexOf("\n---")));
 	if (!match) throw new InvalidCiphertextError("No tlock recipient stanza found in the age header.");
 	const round = Number(match[1]);
+	const armor = extractArmor(ciphertext);
 	return {
 		round,
 		chainHash: match[2],
 		unlockAt: roundTime(round),
-		armored: ciphertext.trimStart().startsWith(ARMOR_HEADER),
+		armored: armor !== null,
+		notes: armor?.notes ?? [],
 	};
 }
 
@@ -68,7 +91,7 @@ export async function decrypt(ciphertext: string, client: ChainClient, now = Dat
 	}
 	if (info.unlockAt > now) throw new TooEarlyError(info.round, info.unlockAt);
 	try {
-		const plaintext = await timelockDecrypt(ciphertext, client);
+		const plaintext = await timelockDecrypt(extractArmor(ciphertext)?.block ?? ciphertext, client);
 		return { plaintext: new Uint8Array(plaintext), info };
 	} catch (err) {
 		if (err instanceof DrandUnavailableError) throw err;

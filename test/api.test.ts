@@ -5,6 +5,7 @@ import { apiDecrypt, apiEncrypt, getEvents, getStats, legacyDecrypt, legacyEncry
 import { QUICKNET, roundForTime, roundTime } from "../src/lib/drand";
 import { recordEvent } from "../src/lib/events";
 import { CORS_HEADERS, isApiPath } from "../src/lib/http";
+import { formatUtc } from "../src/lib/time";
 import { inspectCiphertext } from "../src/lib/tlock";
 import { BEACON, fakeDrand, makeDeps, post, postJson } from "./helpers";
 
@@ -207,6 +208,75 @@ describe("POST /api/decrypt", () => {
 		const res = await apiDecrypt(postJson("/api/decrypt", { ciphertext: armored }), deps);
 		expect(res.status).toBe(422);
 		expect(((await res.json()) as { error: { code: string } }).error.code).toBe("unsupported_chain");
+	});
+});
+
+describe("plain notes outside the armored block", () => {
+	const UNLOCK = roundTime(BEACON.round);
+
+	it("adds no notes unless asked, so existing API clients see no change", async () => {
+		const { deps } = makeDeps();
+		const { ciphertext } = await encryptToFixtureRound(deps);
+		expect(ciphertext.startsWith("-----BEGIN AGE ENCRYPTED FILE-----\n")).toBe(true);
+	});
+
+	it("adds instructions and the unlock time above the block when asked", async () => {
+		const { deps } = makeDeps();
+		const res = await apiEncrypt(
+			postJson("/api/encrypt", { plaintext: "x", round: BEACON.round, includeInstructions: true, includeUnlockTime: true, timeZone: "America/New_York" }),
+			deps,
+		);
+		const { ciphertext } = (await res.json()) as { ciphertext: string };
+		const [first, second, blank, begin] = ciphertext.split("\n");
+		expect(first).toBe("Unlock at https://timelock.dev");
+		expect(second).toBe(`Unlocks: Wed, Sep 27, 2023 4:29 AM EDT (${formatUtc(UNLOCK)})`);
+		expect(blank).toBe("");
+		expect(begin).toBe("-----BEGIN AGE ENCRYPTED FILE-----");
+		expect(inspectCiphertext(ciphertext)).toMatchObject({ round: BEACON.round, notes: [first, second] });
+	});
+
+	it("writes the unlock time in UTC when no time zone is given", async () => {
+		const { deps } = makeDeps();
+		const res = await apiEncrypt(postJson("/api/encrypt", { plaintext: "x", round: BEACON.round, includeUnlockTime: true }), deps);
+		const { ciphertext } = (await res.json()) as { ciphertext: string };
+		expect(ciphertext.split("\n")[0]).toBe(`Unlocks: Wed, Sep 27, 2023 8:29 AM UTC (${formatUtc(UNLOCK)})`);
+	});
+
+	it.each([
+		["a non-boolean flag", { includeInstructions: "yes" }],
+		["an unknown time zone", { includeUnlockTime: true, timeZone: "Mars/Olympus" }],
+		["a non-string time zone", { timeZone: 5 }],
+	])("rejects %s", async (_, extra) => {
+		const { deps, db, settle } = makeDeps();
+		const res = await apiEncrypt(postJson("/api/encrypt", { plaintext: "x", round: BEACON.round, ...extra }), deps);
+		expect(res.status).toBe(400);
+		await settle();
+		expect(db.rows()).toHaveLength(0);
+	});
+
+	it("POST /api/decrypt reads the block and ignores notes around it", async () => {
+		const { deps } = makeDeps({ now: () => AFTER });
+		const res = await apiEncrypt(postJson("/api/encrypt", { plaintext: "said it first", round: BEACON.round, includeInstructions: true, includeUnlockTime: true }), deps);
+		const { ciphertext } = (await res.json()) as { ciphertext: string };
+		const pasted = `${ciphertext}\nPosted by @alan\n`;
+		const out = (await (await apiDecrypt(postJson("/api/decrypt", { ciphertext: pasted }), deps)).json()) as { plaintext: string };
+		expect(out.plaintext).toBe("said it first");
+	});
+
+	it("POST /decrypt (original endpoint) accepts notes too", async () => {
+		const { deps } = makeDeps({ now: () => AFTER });
+		const armored = await (await legacyEncrypt(post(`/encrypt/${BEACON.round}`, "legacy"), String(BEACON.round), deps)).text();
+		const res = await legacyDecrypt(post("/decrypt", `Unlock at https://timelock.dev\r\nUnlocks: whenever\r\n\r\n${armored.replace(/\n/g, "\r\n")}`), deps);
+		expect(res.status).toBe(200);
+		expect(await res.text()).toBe("legacy");
+	});
+
+	it("rejects text with two encrypted blocks", async () => {
+		const { deps } = makeDeps({ now: () => AFTER });
+		const { ciphertext } = await encryptToFixtureRound(deps);
+		const res = await apiDecrypt(postJson("/api/decrypt", { ciphertext: `${ciphertext}\n${ciphertext}` }), deps);
+		expect(res.status).toBe(422);
+		expect(((await res.json()) as { error: { message: string } }).error.message).toMatch(/more than one encrypted block/);
 	});
 });
 

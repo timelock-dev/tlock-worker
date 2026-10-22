@@ -3,10 +3,16 @@ import Base from "../layouts/Base.astro";
 import { LIMITS } from "../lib/api";
 import { QUICKNET, roundForTime, roundTime } from "../lib/drand";
 import { STATS_DAYS } from "../lib/events";
+import { noteLines } from "../lib/notes";
 
 const exRound = roundForTime(Date.parse("2026-10-22T01:05:03Z"));
 const exUnlock = new Date(roundTime(exRound)).toISOString();
 const exUnix = roundTime(exRound) / 1000;
+const noteExample = `${noteLines(roundTime(exRound), { instructions: true, unlockTime: true, timeZone: "America/New_York" }).join("\n")}
+
+-----BEGIN AGE ENCRYPTED FILE-----
+YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IHRsb2Nr…
+-----END AGE ENCRYPTED FILE-----`;
 const kib = (n: number) => `${(n / 1024).toLocaleString("en-US")} KiB`;
 const mib = (n: number) => `${n / 1024 / 1024} MiB`;
 const errors: [number, string, string][] = [
@@ -24,6 +30,7 @@ const errors: [number, string, string][] = [
 ];
 const toc: [string, string, string?][] = [
 	["encrypt", "/api/encrypt", "POST"],
+	["notes", "Notes above the block"],
 	["decrypt", "/api/decrypt", "POST"],
 	["events", "/api/events", "GET"],
 	["stats", "/api/stats", "GET"],
@@ -69,6 +76,9 @@ const toc: [string, string, string?][] = [
 					<tr><td><code>duration</code></td><td>number | string</td><td>Seconds from now (<code>300</code>) or a duration string: <code>"90s"</code>, <code>"15m"</code>, <code>"2h30m"</code>, <code>"3 days 6 hours"</code>. Units: s, m, h, d, w, y (365 days).</td></tr>
 					<tr><td><code>unlockAt</code></td><td>number | string</td><td>Unix seconds, or ISO 8601 with a time zone: <code>"2030-01-01T00:00:00Z"</code>, <code>"2030-01-01T09:00:00+09:00"</code>. Must be in the future.</td></tr>
 					<tr><td><code>round</code></td><td>integer</td><td>An exact quicknet round. Past rounds are allowed, and the result can be decrypted right away.</td></tr>
+					<tr><td><code>includeInstructions</code></td><td>boolean</td><td>Default <code>false</code>. Adds the plain line <code>Unlock at https://timelock.dev</code> above the encrypted block. See <a href="#notes">notes</a>.</td></tr>
+					<tr><td><code>includeUnlockTime</code></td><td>boolean</td><td>Default <code>false</code>. Adds a plain line with the unlock time above the encrypted block.</td></tr>
+					<tr><td><code>timeZone</code></td><td>string</td><td>IANA zone for that line, like <code>"America/New_York"</code>. Default <code>"UTC"</code>. The UTC time is always included too.</td></tr>
 				</tbody>
 			</table>
 		</div>
@@ -85,7 +95,11 @@ const toc: [string, string, string?][] = [
 &#125;</code></pre>
 
 		<h3>More examples</h3>
-		<pre><code># unlock at a specific moment
+		<pre><code># add plain notes above the block (see "Notes above the block")
+curl -s https://timelock.dev/api/encrypt \
+  -d '&#123;"plaintext": "I called it.", "duration": "30d", "includeInstructions": true, "includeUnlockTime": true, "timeZone": "America/New_York"&#125;'
+
+# unlock at a specific moment
 curl -s https://timelock.dev/api/encrypt \
   -d '&#123;"plaintext": "Happy new year!", "unlockAt": "2030-01-01T00:00:00Z"&#125;'
 
@@ -93,6 +107,17 @@ curl -s https://timelock.dev/api/encrypt \
 curl -s https://timelock.dev/api/encrypt \
   -d "&#123;\"plaintext\": \"$(base64 -w0 photo.jpg)\", \"encoding\": \"base64\", \"duration\": \"30d\"&#125;" \
   | jq -r .ciphertext > photo.jpg.age</code></pre>
+
+		<h3 id="notes">Notes above the block</h3>
+		<p>With <code>includeInstructions</code> and <code>includeUnlockTime</code>, <code>ciphertext</code> starts with plain lines, then a blank line, then the block:</p>
+		<pre><code>{noteExample}</code></pre>
+		<p>
+			The notes are not encrypted or signed, and anyone can change them. The unlock time that counts is the round inside the block. This site and
+			both decrypt endpoints ignore the notes. <strong>Other tools need just the BEGIN…END block.</strong> We tested <code>dee</code>, Go
+			<code>tle</code> and <code>age</code>, Rust <code>tlock_age</code> and <code>tlock-js</code>: all of them reject any text before or after
+			the block. To strip the notes:
+		</p>
+		<pre><code>sed -n '/^-----BEGIN AGE/,/^-----END AGE/p' message.txt | dee crypt --decrypt</code></pre>
 
 		<h2 id="decrypt"><span class="method">POST</span>/api/decrypt</h2>
 		<p>Decrypts a message after its round is published. It accepts armored quicknet files made by this site, the API, <code>dee</code>, <code>tlock</code> or <code>tlock-js</code>.</p>
@@ -104,7 +129,7 @@ curl -s https://timelock.dev/api/encrypt \
 			<table class="api">
 				<thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
 				<tbody>
-					<tr><td><code>ciphertext</code></td><td>string, required</td><td>Armored age text, <code>-----BEGIN AGE ENCRYPTED FILE-----</code> … <code>-----END AGE ENCRYPTED FILE-----</code>.</td></tr>
+					<tr><td><code>ciphertext</code></td><td>string, required</td><td>Armored age text, <code>-----BEGIN AGE ENCRYPTED FILE-----</code> … <code>-----END AGE ENCRYPTED FILE-----</code>. Text before or after the block, like <a href="#notes">notes</a>, is ignored. Exactly one block is allowed.</td></tr>
 					<tr><td><code>encoding</code></td><td><code>"base64"</code></td><td>Optional. Return base64 even when the message is valid UTF-8 text.</td></tr>
 				</tbody>
 			</table>
@@ -180,7 +205,7 @@ curl -s https://timelock.dev/api/encrypt \
 		<p>Send the message as raw bytes. You get back the armored age file (<code>Content-Type: application/octet-stream</code>). To find the round for a time, use <code>/api/encrypt</code> or <code>dee</code>.</p>
 		<pre><code>curl -s -X POST --data-binary @original.png https://timelock.dev/encrypt/{exRound} > encrypted.age</code></pre>
 		<h3><span class="method">POST</span>/decrypt</h3>
-		<p>Send an armored <em>or</em> binary age file. You get back the message as raw bytes.</p>
+		<p>Send an armored <em>or</em> binary age file. Notes around an armored block are ignored. You get back the message as raw bytes.</p>
 		<pre><code>curl -s -X POST --data-binary @encrypted.age https://timelock.dev/decrypt > decrypted.png</code></pre>
 		<p class="small">Errors on these endpoints are plain text, with the HTTP status codes listed below. For example, you get <code>425</code> when it's too early.</p>
 

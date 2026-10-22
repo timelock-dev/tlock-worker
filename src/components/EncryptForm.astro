@@ -90,7 +90,14 @@ const presets: [amount: number, unit: string, label: string][] = [
 			</div>
 			<p class="status err" data-error role="alert" hidden></p>
 
-			<div class="row">
+			<fieldset class="field notes-options" data-notes-options>
+				<legend>Plain notes above the encrypted block</legend>
+				<label class="check"><input type="checkbox" data-note="instructions" checked /> Include unlock instructions</label>
+				<label class="check"><input type="checkbox" data-note="unlockTime" checked /> Include human-readable unlock time</label>
+				<p class="hint">Notes aren't encrypted, and anyone can edit them. Other tools need only the BEGIN…END block. <a href="/faq#notes">About notes</a></p>
+			</fieldset>
+
+			<div class="row" data-submit-row>
 				<button class="btn" type="submit">Encrypt</button>
 				<span class="hint">Your message is encrypted on this page and is not sent to us.</span>
 			</div>
@@ -98,8 +105,16 @@ const presets: [amount: number, unit: string, label: string][] = [
 
 		<div data-result hidden>
 			<div data-result-status></div>
-			<label for="ciphertext" class="sr-only">Encrypted message</label>
-			<textarea id="ciphertext" class="code" rows="7" readonly></textarea>
+			<div class="block-head">
+				<label for="ciphertext">Encrypted block</label>
+				<button type="button" class="link-btn" data-copy-block>Copy block only</button>
+			</div>
+			<textarea id="ciphertext" class="code" rows="7" readonly spellcheck="false"></textarea>
+			<div data-notes-slot></div>
+			<div class="copy-preview">
+				<p class="copy-preview-title" id="copy-preview-title">Copy and Download give you exactly this</p>
+				<pre data-preview aria-labelledby="copy-preview-title" tabindex="0"></pre>
+			</div>
 			<div class="row result-actions">
 				<button class="btn" type="button" data-copy>Copy</button>
 				<button class="btn secondary" type="button" data-download>Download .age file</button>
@@ -219,7 +234,77 @@ const presets: [amount: number, unit: string, label: string][] = [
 		margin: 8px 0 0;
 	}
 	.result-actions {
-		margin-top: 8px;
+		margin-top: 12px;
+	}
+	.notes-options .check {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin: 0 0 6px;
+		font-weight: 400;
+		cursor: pointer;
+	}
+	.notes-options .check input {
+		width: 16px;
+		height: 16px;
+		margin: 0;
+		accent-color: var(--green);
+	}
+	.notes-options .hint {
+		margin: 2px 0 0;
+	}
+	[data-notes-slot] .notes-options {
+		margin: 12px 0 0;
+	}
+	.block-head {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 8px;
+		margin-top: 16px;
+	}
+	.block-head label {
+		margin: 0 0 6px;
+	}
+	.link-btn {
+		padding: 0;
+		border: 0;
+		background: none;
+		font: inherit;
+		font-size: 12px;
+		color: var(--link);
+		cursor: pointer;
+	}
+	.link-btn:hover {
+		text-decoration: underline;
+	}
+	.copy-preview {
+		margin-top: 12px;
+	}
+	.copy-preview-title {
+		margin: 0 0 4px;
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--muted);
+	}
+	.copy-preview pre {
+		max-height: 9.5em;
+		margin: 0;
+		padding: 8px 12px;
+		overflow: auto;
+		border: 1px dashed var(--border);
+		border-radius: var(--radius);
+		background: var(--canvas-subtle);
+		font-size: 11px;
+		line-height: 1.45;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+</style>
+<style is:global>
+	.copy-preview .note-line {
+		color: var(--green-text);
+		font-weight: 600;
 	}
 </style>
 <style is:global>
@@ -275,6 +360,7 @@ const presets: [amount: number, unit: string, label: string][] = [
 	import { createDrandClient, roundForTime, roundTime } from "../lib/drand";
 	import { encrypt } from "../lib/tlock";
 	import { encryptedPanelHtml } from "../lib/status";
+	import { noteLines, withNotes } from "../lib/notes";
 	import { detectTimeZone, formatDuration, formatLocal, formatUtc, zonedParts } from "../lib/time";
 	import { addMonths, compareDays, dateTarget, durationTarget, MAX_LOCK_SECONDS, monthGrid, todayIn, timeZoneList, type Day, type Target } from "../lib/unlock";
 	import { reportEvent } from "../scripts/report";
@@ -297,6 +383,8 @@ const presets: [amount: number, unit: string, label: string][] = [
 	let lockedUntil = 0;
 	let lockedRound = 0;
 	let resultHtml = "";
+	let armored = "";
+	let noteZone = browserZone;
 	let zone = browserZone;
 	let selected: Day | null = null;
 	let view = { year: 0, month: 0 };
@@ -447,14 +535,17 @@ const presets: [amount: number, unit: string, label: string][] = [
 		button.textContent = "Encrypting…";
 		try {
 			const round = roundForTime(t.ms);
-			const ciphertext = await encrypt(new TextEncoder().encode(message.value), round, client);
+			armored = await encrypt(new TextEncoder().encode(message.value), round, client);
 			lockedUntil = roundTime(round);
 			lockedRound = round;
-			$<HTMLTextAreaElement>("#ciphertext").value = ciphertext;
+			noteZone = mode === "date" ? zone : browserZone;
+			$<HTMLTextAreaElement>("#ciphertext").value = armored;
 			message.value = "";
+			$("[data-notes-slot]").appendChild(notesOptions);
 			form.hidden = true;
 			result.hidden = false;
 			renderResult();
+			renderPreview();
 			reportEvent("encrypt", round);
 		} catch (err) {
 			errorBox.textContent = `Encryption failed: ${err instanceof Error ? err.message : String(err)}`;
@@ -465,13 +556,29 @@ const presets: [amount: number, unit: string, label: string][] = [
 		}
 	});
 
-	const ciphertext = () => $<HTMLTextAreaElement>("#ciphertext").value;
-	$("[data-copy]").addEventListener("click", async (e) => {
-		await navigator.clipboard.writeText(ciphertext());
-		const b = e.currentTarget as HTMLButtonElement;
-		b.textContent = "Copied";
-		setTimeout(() => (b.textContent = "Copy"), 1500);
-	});
+	const notesOptions = $("[data-notes-options]");
+	const noteBox = (name: string) => notesOptions.querySelector<HTMLInputElement>(`[data-note="${name}"]`)!;
+	const notes = () => noteLines(lockedUntil, { instructions: noteBox("instructions").checked, unlockTime: noteBox("unlockTime").checked, timeZone: noteZone });
+	const ciphertext = () => withNotes(armored, notes());
+
+	function renderPreview() {
+		const lines = notes();
+		const pre = $("[data-preview]");
+		pre.replaceChildren(
+			...lines.map((line) => Object.assign(document.createElement("span"), { className: "note-line", textContent: `${line}\n` })),
+			document.createTextNode(lines.length ? `\n${armored}` : armored),
+		);
+	}
+	notesOptions.querySelectorAll("input").forEach((box) => box.addEventListener("change", renderPreview));
+
+	async function copyWithFeedback(button: HTMLButtonElement, text: string) {
+		await navigator.clipboard.writeText(text);
+		const label = button.textContent;
+		button.textContent = "Copied";
+		setTimeout(() => (button.textContent = label), 1500);
+	}
+	$("[data-copy]").addEventListener("click", (e) => copyWithFeedback(e.currentTarget as HTMLButtonElement, ciphertext()));
+	$("[data-copy-block]").addEventListener("click", (e) => copyWithFeedback(e.currentTarget as HTMLButtonElement, armored));
 	$("[data-download]").addEventListener("click", () => {
 		const a = document.createElement("a");
 		a.href = URL.createObjectURL(new Blob([ciphertext()], { type: "text/plain" }));
@@ -484,6 +591,7 @@ const presets: [amount: number, unit: string, label: string][] = [
 	});
 	$("[data-again]").addEventListener("click", () => {
 		result.hidden = true;
+		form.insertBefore(notesOptions, $("[data-submit-row]"));
 		form.hidden = false;
 		lockedUntil = 0;
 		$<HTMLTextAreaElement>("#message").focus();

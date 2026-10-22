@@ -3,6 +3,7 @@ import { Buffer } from "tlock-js";
 import { DrandUnavailableError, QUICKNET, currentRound, roundForTime, roundTime } from "./drand";
 import { eventStats, listEvents, recordEvent, type EventsDb, type EventSource, type EventType } from "./events";
 import { ApiError, errorJson, errorText, json, readBody, readJson } from "./http";
+import { noteLines, withNotes, type NoteOptions } from "./notes";
 import { parseDuration, parseTimestamp } from "./time";
 import {
 	InvalidCiphertextError,
@@ -127,6 +128,28 @@ function encodePlaintext(bytes: Uint8Array, wanted: unknown): { plaintext: strin
 	return { plaintext: Buffer.from(bytes).toString("base64"), encoding: "base64" };
 }
 
+function readNoteOptions(body: Record<string, unknown>): NoteOptions {
+	const flag = (key: "includeInstructions" | "includeUnlockTime") => {
+		const value = body[key] ?? false;
+		if (typeof value !== "boolean") throw new ApiError(400, "invalid_request", `\`${key}\` must be true or false.`);
+		return value;
+	};
+	const timeZone = body.timeZone ?? "UTC";
+	if (typeof timeZone !== "string" || !isTimeZone(timeZone)) {
+		throw new ApiError(400, "invalid_request", "`timeZone` must be an IANA time zone such as \"America/New_York\" or \"UTC\".");
+	}
+	return { instructions: flag("includeInstructions"), unlockTime: flag("includeUnlockTime"), timeZone };
+}
+
+function isTimeZone(zone: string): boolean {
+	try {
+		new Intl.DateTimeFormat("en-US", { timeZone: zone });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 const roundFields = (round: number) => ({
 	round,
 	unlockAt: new Date(roundTime(round)).toISOString(),
@@ -140,7 +163,9 @@ export async function apiEncrypt(request: Request, deps: Deps): Promise<Response
 		const now = (deps.now ?? Date.now)();
 		const round = resolveRound(body, now);
 		const plaintext = decodePlaintext(body);
-		const ciphertext = await encrypt(plaintext, round, deps.drand);
+		const notes = readNoteOptions(body);
+		const armored = await encrypt(plaintext, round, deps.drand);
+		const ciphertext = withNotes(armored, noteLines(roundTime(round), notes));
 		track(deps, "encrypt", "api", round);
 		return json({ ciphertext, ...roundFields(round), chainHash: QUICKNET.hash, network: "quicknet" });
 	} catch (err) {
@@ -153,7 +178,7 @@ export async function apiDecrypt(request: Request, deps: Deps): Promise<Response
 	try {
 		const body = await readJson(request, LIMITS.jsonBodyBytes);
 		if (typeof body.ciphertext !== "string" || !body.ciphertext.trim()) {
-			throw new ApiError(400, "invalid_request", "`ciphertext` must be an armored age string (-----BEGIN AGE ENCRYPTED FILE-----).");
+			throw new ApiError(400, "invalid_request", "`ciphertext` must be a string containing an armored age block (-----BEGIN AGE ENCRYPTED FILE-----).");
 		}
 		const { plaintext, info } = await decrypt(body.ciphertext, deps.drand, (deps.now ?? Date.now)());
 		track(deps, "decrypt", "api", info.round);

@@ -892,6 +892,16 @@ fieldset {
 	font-size: 12px;
 }
 
+.lock-panel-line.warn {
+	margin-top: 6px;
+	padding: 6px 10px;
+	border: 1px solid #f2e2a8;
+	border-radius: var(--radius);
+	background: #fffbea;
+	font-size: 13px;
+	color: var(--text);
+}
+
 /* drand verification badge */
 
 .verify {
