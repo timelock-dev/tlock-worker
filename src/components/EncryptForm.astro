@@ -361,9 +361,9 @@ const presets: [amount: number, unit: string, label: string][] = [
 	import { encrypt } from "../lib/tlock";
 	import { encryptedPanelHtml } from "../lib/status";
 	import { noteLines, withNotes } from "../lib/notes";
-	import { detectTimeZone, formatDuration, formatLocal, formatUtc, zonedParts } from "../lib/time";
+	import { detectTimeZone, formatLocal, formatSpan, formatUtc, zonedParts } from "../lib/time";
 	import { addMonths, compareDays, dateTarget, durationTarget, MAX_LOCK_SECONDS, monthGrid, todayIn, timeZoneList, type Day, type Target } from "../lib/unlock";
-	import { reportEvent } from "../scripts/report";
+	import { reportEventOnce } from "../scripts/report";
 
 	const form = document.querySelector<HTMLFormElement>("#encrypt-form")!;
 	const section = document.querySelector<HTMLElement>("#encrypt")!;
@@ -474,7 +474,7 @@ const presets: [amount: number, unit: string, label: string][] = [
 		set("[data-local]", `${formatLocal(at, { timeZone: shownZone })} (${shownZone.replace(/_/g, " ")})`);
 		set("[data-utc]", formatUtc(at));
 		set("[data-round]", `drand round #${round.toLocaleString("en-US")}`);
-		set("[data-duration]", formatDuration(Math.round(((mode === "duration" ? t.ms : at) - now) / 1000)));
+		set("[data-duration]", formatSpan(Math.round(((mode === "duration" ? t.ms : at) - now) / 1000)));
 	}
 
 	function setMode(next: typeof mode) {
@@ -546,7 +546,7 @@ const presets: [amount: number, unit: string, label: string][] = [
 			result.hidden = false;
 			renderResult();
 			renderPreview();
-			reportEvent("encrypt", round);
+			void reportEventOnce("encrypt", round, armored);
 		} catch (err) {
 			errorBox.textContent = `Encryption failed: ${err instanceof Error ? err.message : String(err)}`;
 			errorBox.hidden = false;

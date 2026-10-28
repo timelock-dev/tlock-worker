@@ -45,6 +45,28 @@ export function formatDuration(totalSeconds: number, maxUnits = 3): string {
 	return joinList(parts);
 }
 
+/**
+ * A duration in at most `maxUnits` consecutive units, rounded to the nearest last unit rather than floored,
+ * e.g. 3d 23h 40m → "4 days" (1 unit) or "3 days 24 hours" carried to "4 days" (2 units); 3d 22h 50m → "3 days 23 hours".
+ */
+export function formatSpan(totalSeconds: number, maxUnits = 2): string {
+	let s = Math.max(0, Math.round(totalSeconds));
+	if (s === 0) return "0 seconds";
+	let first = -1;
+	for (let pass = 0; pass < 2; pass++) {
+		first = UNITS.findIndex((u) => s >= u.seconds);
+		const step = UNITS[Math.min(first + maxUnits - 1, UNITS.length - 1)].seconds;
+		s = Math.round(s / step) * step;
+	}
+	first = UNITS.findIndex((u) => s >= u.seconds);
+	const counts = split(s);
+	return UNITS.slice(first, first + maxUnits)
+		.map((u, i) => [u, counts[first + i]] as const)
+		.filter(([, n]) => n > 0)
+		.map(([u, n]) => `${n.toLocaleString("en-US")} ${u.name}${n === 1 ? "" : "s"}`)
+		.join(" ");
+}
+
 /** Compact countdown, e.g. "3d 6h 45m 12s"; leading zero units are dropped. */
 export function formatCountdown(totalSeconds: number): string {
 	const counts = split(totalSeconds);
@@ -102,25 +124,49 @@ export function formatLocal(ms: number, opts: { timeZone?: string; locale?: stri
 	}).format(ms);
 }
 
-/** "just now", "42 sec ago", "12 min ago", "in 3 hours", "2 days ago", … */
+const RELATIVE_STEPS: [limit: number, size: number, unit: string, plural: boolean][] = [
+	[60, 1, "sec", false],
+	[3600, 60, "min", false],
+	[86400, 3600, "hour", true],
+	[30 * 86400, 86400, "day", true],
+	[365 * 86400, 30 * 86400, "month", true],
+	[Infinity, 365 * 86400, "year", true],
+];
+
+/**
+ * Past: "just now", "42 sec ago", "2 hours ago" (one unit, rounded to the nearest, so 1h 55m is "2 hours ago").
+ * Future: "in 3 days 23 hours" (two units, see formatSpan), so a remaining time is never floored.
+ */
 export function formatRelative(targetMs: number, nowMs: number = Date.now()): string {
 	const diff = (targetMs - nowMs) / 1000;
 	const abs = Math.abs(diff);
 	if (abs < 10) return "just now";
-	const steps: [number, string, boolean][] = [
-		[60, "sec", false],
-		[3600, "min", false],
-		[86400, "hour", true],
-		[30 * 86400, "day", true],
-		[365 * 86400, "month", true],
-		[Infinity, "year", true],
-	];
-	const divisors = [1, 60, 3600, 86400, 30 * 86400, 365 * 86400];
-	const i = steps.findIndex(([limit]) => abs < limit);
-	const n = Math.floor(abs / divisors[i]);
-	const [, unit, plural] = steps[i];
-	const label = `${n} ${unit}${plural && n !== 1 ? "s" : ""}`;
-	return diff < 0 ? `${label} ago` : `in ${label}`;
+	if (diff > 0) return `in ${formatSpan(abs)}`;
+	let i = RELATIVE_STEPS.findIndex(([limit]) => abs < limit);
+	let n = Math.round(abs / RELATIVE_STEPS[i][1]);
+	while (n * RELATIVE_STEPS[i][1] >= RELATIVE_STEPS[i][0]) {
+		i++;
+		n = Math.round(abs / RELATIVE_STEPS[i][1]);
+	}
+	const [, , unit, plural] = RELATIVE_STEPS[i];
+	return `${n} ${unit}${plural && n !== 1 ? "s" : ""} ago`;
+}
+
+/** Short date and time with a zone, e.g. "Oct 26, 1:30 PM EDT"; the year is added when it isn't the current one. */
+export function formatShortDate(ms: number, opts: { timeZone?: string; now?: number } = {}): string {
+	const year = (t: number) => new Intl.DateTimeFormat("en-US", { year: "numeric", timeZone: opts.timeZone }).format(t);
+	const showYear = year(ms) !== year(opts.now ?? Date.now());
+	const parts = new Intl.DateTimeFormat("en-US", {
+		month: "short",
+		day: "numeric",
+		year: showYear ? "numeric" : undefined,
+		hour: "numeric",
+		minute: "2-digit",
+		timeZoneName: "short",
+		timeZone: opts.timeZone,
+	}).formatToParts(ms);
+	const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+	return `${get("month")} ${get("day")}${showYear ? `, ${get("year")}` : ""}, ${get("hour")}:${get("minute")} ${get("dayPeriod")} ${get("timeZoneName")}`;
 }
 
 /**
@@ -204,12 +250,4 @@ export function formatFriendly(ms: number, opts: { timeZone?: string; locale?: s
 	}).formatToParts(ms);
 	const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
 	return `${get("weekday")}, ${get("month")} ${get("day")}, ${get("year")} at ${get("hour")}:${get("minute")} ${get("dayPeriod")} ${get("timeZoneName")}`;
-}
-
-/** A duration rounded to its largest unit, e.g. 29 days 23 hours → "30 days", 90 minutes → "2 hours". */
-export function formatApproxDuration(totalSeconds: number): string {
-	const s = Math.max(0, totalSeconds);
-	const unit = UNITS.find((u) => s >= u.seconds) ?? UNITS[UNITS.length - 1];
-	const n = Math.max(1, Math.round(s / unit.seconds));
-	return `${n.toLocaleString("en-US")} ${unit.name}${n === 1 ? "" : "s"}`;
 }

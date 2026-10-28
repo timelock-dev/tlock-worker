@@ -19,6 +19,7 @@ const { events, stats, now } = Astro.props;
 			<p class="Box-title stats" data-stats set:html={stats ? statsHtml(stats) : "Activity is unavailable right now."} />
 		</div>
 		<ul class="activity-list" data-activity-list aria-live="polite" set:html={events ? activityRowsHtml(events, now, "UTC") : ""} />
+		{events && <script is:inline type="application/json" data-activity-json set:html={JSON.stringify(events).replace(/</g, "\\u003c")} />}
 		<p class="blankslate" data-activity-empty hidden={events !== null && events.length > 0}>
 			{events === null ? "The activity list could not be loaded. Encrypting and decrypting still work." : "Nothing yet. Encrypt a message and it will show up here."}
 		</p>
@@ -72,6 +73,12 @@ const { events, stats, now } = Astro.props;
 			}
 		}
 
+		try {
+			events = JSON.parse(root.querySelector("[data-activity-json]")?.textContent ?? "null");
+		} catch {
+			events = null;
+		}
+		render();
 		window.addEventListener(EVENT_REPORTED, refresh);
 		refresh();
 		setInterval(refresh, 30_000);

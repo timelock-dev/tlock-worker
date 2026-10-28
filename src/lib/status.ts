@@ -1,6 +1,6 @@
 import { iconSvg } from "./icons";
 import { noteUnlockTime } from "./notes";
-import { formatApproxDuration, formatDuration, formatFriendly, formatRelative, formatUtc } from "./time";
+import { formatFriendly, formatRelative, formatSpan, formatUtc } from "./time";
 
 const roundLabel = (round: number) => `drand round #${round.toLocaleString("en-US")}`;
 
@@ -16,7 +16,7 @@ export function encryptedPanelHtml(unlockAt: number, round: number, now: number)
 	const left = (unlockAt - now) / 1000;
 	const when = formatFriendly(unlockAt);
 	return panel("done", "Your message is encrypted", [
-		{ text: left > 0 ? `It can be opened on ${when} (in ${formatApproxDuration(left)}).` : `It can be opened now. It unlocked on ${when}.` },
+		{ text: left > 0 ? `It can be opened on ${when} (in ${formatSpan(left)}).` : `It can be opened now. It unlocked on ${when}.` },
 		{ text: `${formatUtc(unlockAt)} · ${roundLabel(round)}`, muted: true },
 	]);
 }
@@ -38,7 +38,7 @@ export function decryptStatePanelHtml(unlockAt: number, round: number, now: numb
 		return panel("locked", "Still locked", [
 			{ text: `Opens ${formatFriendly(unlockAt)}` },
 			{ text: formatUtc(unlockAt), muted: true },
-			{ text: `${formatDuration(left)} to go` },
+			{ text: `${formatSpan(left)} to go` },
 			{ text: roundLabel(round), muted: true },
 			...notesLines(unlockAt, notes),
 		]);

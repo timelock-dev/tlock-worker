@@ -1,16 +1,21 @@
 import type { EventStats, FeedEvent } from "./events";
 import { iconSvg } from "./icons";
-import { formatDuration, formatLocal, formatRelative, formatUtc } from "./time";
+import { formatLocal, formatRelative, formatShortDate, formatSpan, formatUtc } from "./time";
 
 export const ACTIVITY_LIMIT = 10;
 
 const escape = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
 const count = (n: number) => n.toLocaleString("en-US");
 
-/** Lock length for display: whole minutes once it's a minute or more, so the 3-second round snap doesn't show as "and 2 seconds". */
+/** Lock length for display: whole minutes once it's a minute or more, so the 3-second round snap doesn't show as "2 seconds". */
 export function lockLength(seconds: number): string {
 	const s = Math.max(0, seconds);
-	return formatDuration(s >= 60 ? Math.round(s / 60) * 60 : s, 2);
+	return formatSpan(s >= 60 ? Math.round(s / 60) * 60 : s);
+}
+
+/** "4-day lock", "3-day 23-hour lock", "30-second lock". */
+export function lockLabel(seconds: number): string {
+	return `${lockLength(seconds).replace(/([\d,]+) ([a-z]+?)s?(?= |$)/g, "$1-$2")} lock`;
 }
 
 type StatsPart = { text: string; strong?: boolean; group?: boolean };
@@ -49,24 +54,30 @@ export function statsHtml(stats: EventStats): string {
 	);
 }
 
-/** The muted detail after "Encrypted"/"Decrypted", e.g. "for 3 hours · unlocks in 2 hours". */
-export function eventDetail(e: FeedEvent, now: number): string {
+/**
+ * The parts after "Encrypted"/"Decrypted": ["4-day lock", "opens Oct 26, 1:30 PM EDT"], ["4-day lock", "opened 2 hours ago"]
+ * or ["unlocked Oct 26, 1:30 PM EDT"]. A decrypt isn't linked to its encryption, so its lock length is unknown.
+ */
+export function eventDetail(e: FeedEvent, now: number, timeZone?: string): string[] {
 	const created = Date.parse(e.createdAt);
 	const unlock = Date.parse(e.unlockAt);
-	const when = unlock > now ? `unlocks ${formatRelative(unlock, now)}` : `unlocked ${formatRelative(unlock, now)}`;
-	if (e.type === "decrypt") return when;
-	return `for ${lockLength((unlock - created) / 1000)} · ${when}`;
+	if (e.type === "decrypt") return [`unlocked ${formatShortDate(unlock, { timeZone, now })}`];
+	const lock = unlock > created ? lockLabel((unlock - created) / 1000) : "no lock";
+	return [lock, unlock > now ? `opens ${formatShortDate(unlock, { timeZone, now })}` : `opened ${formatRelative(unlock, now)}`];
 }
 
-/** `timeZone` is for the hover title; the server passes "UTC", the browser leaves it unset for local time. */
+/** `timeZone` is for dates; the server passes "UTC", the browser leaves it unset for local time. */
 export function eventRowHtml(e: FeedEvent, now: number, timeZone?: string): string {
 	const created = Date.parse(e.createdAt);
 	const unlock = Date.parse(e.unlockAt);
 	const encrypted = e.type === "encrypt";
-	const tooltip = `Unlock time ${formatUtc(unlock)}, drand round #${count(e.round)}`;
+	const tooltip = `${unlock > now ? `Opens ${formatRelative(unlock, now)}. ` : ""}Unlock time ${formatUtc(unlock)}, drand round #${count(e.round)}`;
+	const detail = eventDetail(e, now, timeZone)
+		.map((part) => ` · ${escape(part)}`)
+		.join("");
 	return `<li class="activity-row">
 	<span class="activity-icon ${encrypted ? "is-lock" : "is-unlock"}">${iconSvg(encrypted ? "lock" : "unlock")}</span>
-	<span class="activity-main" title="${escape(tooltip)}"><strong>${encrypted ? "Encrypted" : "Decrypted"}</strong> <span class="muted">${escape(eventDetail(e, now))}</span></span>
+	<span class="activity-main" title="${escape(tooltip)}"><strong>${encrypted ? "Encrypted" : "Decrypted"}</strong><span class="muted">${detail}</span></span>
 	<span class="Label">${e.source === "web" ? "website" : "API"}</span>
 	<time class="activity-time muted" datetime="${escape(e.createdAt)}" title="${escape(formatLocal(created, { timeZone }))}">${escape(formatRelative(created, now))}</time>
 </li>`;

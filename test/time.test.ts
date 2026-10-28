@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import { currentRound, QUICKNET, roundForTime, roundTime } from "../src/lib/drand";
 import {
 	formatCountdown,
-	formatApproxDuration,
 	formatDuration,
 	formatFriendly,
 	formatLocal,
 	formatRelative,
+	formatShortDate,
+	formatSpan,
 	formatUtc,
 	joinList,
 	parseDuration,
@@ -123,14 +124,26 @@ describe("friendly formats", () => {
 	});
 
 	it.each([
-		[29 * DAY + 23 * 3600, "30 days"],
-		[90 * 60, "2 hours"],
-		[3600, "1 hour"],
+		[3 * DAY + 23 * 3600 + 30, "3 days 23 hours"],
+		[3 * DAY + 23 * 3600 + 40 * 60, "4 days"],
+		[3 * DAY + 22 * 3600 + 50 * 60, "3 days 23 hours"],
+		[23 * 3600 + 59 * 60 + 40, "1 day"],
+		[4 * DAY + 2, "4 days"],
+		[2 * 3600 + 15 * 60, "2 hours 15 minutes"],
+		[302, "5 minutes 2 seconds"],
 		[59, "59 seconds"],
-		[0, "1 second"],
-		[400 * DAY, "1 year"],
-	])("approximates %i seconds as %s", (seconds, expected) => {
-		expect(formatApproxDuration(seconds)).toBe(expected);
+		[0, "0 seconds"],
+		[364 * DAY + 23 * 3600 + 50 * 60, "1 year"],
+		[400 * DAY, "1 year 35 days"],
+	])("formats %i seconds as %s in two rounded units", (seconds, expected) => {
+		expect(formatSpan(seconds)).toBe(expected);
+	});
+
+	it("formats short dates in the viewer's zone, with the year only when it differs", () => {
+		const now = Date.UTC(2026, 9, 22, 12);
+		expect(formatShortDate(Date.UTC(2026, 9, 26, 17, 30), { now })).toBe("Oct 26, 1:30 PM EDT");
+		expect(formatShortDate(Date.UTC(2026, 9, 26, 17, 30), { now, timeZone: "UTC" })).toBe("Oct 26, 5:30 PM UTC");
+		expect(formatShortDate(Date.UTC(2027, 0, 3, 14), { now })).toBe("Jan 3, 2027, 9:00 AM EST");
 	});
 });
 
@@ -164,11 +177,15 @@ describe("formatRelative", () => {
 		[-5_000, "just now"],
 		[-42_000, "42 sec ago"],
 		[-12 * 60_000, "12 min ago"],
-		[8 * 60_000, "in 8 min"],
+		[-59.6 * 60_000, "1 hour ago"],
 		[-3600_000, "1 hour ago"],
+		[-(3600 + 55 * 60) * 1000, "2 hours ago"],
 		[-3 * 3600_000, "3 hours ago"],
+		[-45 * DAY * 1000, "2 months ago"],
+		[-29.7 * DAY * 1000, "1 month ago"],
+		[8 * 60_000, "in 8 minutes"],
+		[(3 * DAY + 23 * 3600 + 20 * 60) * 1000, "in 3 days 23 hours"],
 		[2 * DAY * 1000, "in 2 days"],
-		[-45 * DAY * 1000, "1 month ago"],
 		[3 * 365 * DAY * 1000, "in 3 years"],
 	])("%s ms → %s", (offset, expected) => {
 		expect(formatRelative(now + offset, now)).toBe(expected);
