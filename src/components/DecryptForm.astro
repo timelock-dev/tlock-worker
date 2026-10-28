@@ -42,9 +42,9 @@
 
 <script>
 	import { createDrandClient, DrandUnavailableError } from "../lib/drand";
-	import { decrypt, inspectCiphertext, InvalidCiphertextError, TooEarlyError, UnsupportedChainError, type CiphertextInfo } from "../lib/tlock";
+	import { decrypt, extractArmor, inspectCiphertext, InvalidCiphertextError, TooEarlyError, UnsupportedChainError, type CiphertextInfo } from "../lib/tlock";
 	import { decryptStatePanelHtml } from "../lib/status";
-	import { reportEvent } from "../scripts/report";
+	import { reportEventOnce } from "../scripts/report";
 
 	const section = document.querySelector<HTMLElement>("#decrypt")!;
 	const $ = <T extends HTMLElement>(sel: string) => section.querySelector<T>(sel)!;
@@ -107,7 +107,8 @@
 		button.disabled = true;
 		button.textContent = "Decrypting…";
 		try {
-			const result = await decrypt(input.value, client);
+			const pasted = input.value;
+			const result = await decrypt(pasted, client);
 			plaintext = result.plaintext;
 			let text: string | null = null;
 			try {
@@ -120,7 +121,7 @@
 			$("[data-download]").hidden = text !== null;
 			output.hidden = false;
 			show("ok", "Decrypted.");
-			reportEvent("decrypt", result.info.round);
+			void reportEventOnce("decrypt", result.info.round, extractArmor(pasted)?.block ?? pasted.trim());
 		} catch (err) {
 			if (err instanceof TooEarlyError) renderInfo();
 			else if (err instanceof DrandUnavailableError) show("err", "Could not reach drand to get the key for this round. Try again in a moment.");
