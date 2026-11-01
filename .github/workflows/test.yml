@@ -1,0 +1,49 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+
+  interop:
+    runs-on: ubuntu-latest
+    env:
+      TLE_VERSION: v1.2.0
+      DEE_VERSION: dee-v0.0.21
+      DEE_SHA256: 369e3d6d8ea32f900117d4ee6a24e6405b2ce3256077cf5daf1bca363beaf21f
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: false
+      - run: npm ci
+      - name: Install Go tle
+        run: GOBIN="$RUNNER_TEMP/bin" go install "github.com/drand/tlock/cmd/tle@$TLE_VERSION"
+      - name: Install dee
+        run: |
+          curl -fsSL -o dee.tar.gz "https://github.com/thibmeu/drand-rs/releases/download/$DEE_VERSION/dee-$DEE_VERSION-x86_64-linux.tar.gz"
+          echo "$DEE_SHA256  dee.tar.gz" | sha256sum -c -
+          tar xzf dee.tar.gz -C "$RUNNER_TEMP" && mv "$RUNNER_TEMP/dee/dee" "$RUNNER_TEMP/bin/dee"
+      - name: Round trips against tle and dee (live drand relays)
+        run: TLE_BIN="$RUNNER_TEMP/bin/tle" DEE_BIN="$RUNNER_TEMP/bin/dee" npx vitest run test/interop.test.ts
