@@ -1,6 +1,10 @@
-import { Buffer, timelockDecrypt, timelockEncrypt } from "tlock-js";
-import type { ChainClient } from "drand-client";
+import { Buffer, timelockEncrypt } from "tlock-js";
+import { decryptAge, type Stanza } from "tlock-js/age/age-encrypt-decrypt";
+import { decodeArmor, isProbablyArmored } from "tlock-js/age/armor";
+import { createTimelockDecrypter } from "tlock-js/drand/timelock-decrypter";
+import { fetchBeacon, type ChainClient, type RandomnessBeacon } from "drand-client";
 import { DrandUnavailableError, QUICKNET, roundTime } from "./drand";
+import { unwrapLegacyRustTlock } from "./legacy-tlock";
 
 const ARMOR_HEADER = "-----BEGIN AGE ENCRYPTED FILE-----";
 const ARMOR_FOOTER = "-----END AGE ENCRYPTED FILE-----";
@@ -84,6 +88,37 @@ export async function encrypt(plaintext: Uint8Array, round: number, client: Chai
 	return timelockEncrypt(round, Buffer.from(plaintext), client);
 }
 
+/**
+ * tlock-js's stanza unwrapper, falling back to the legacy Rust H3 when the standard U = rP check fails, so messages made by
+ * the original Rust worker (tlock_age 0.0.5) still open. See legacy-tlock.ts.
+ */
+function unwrapFileKey(client: ChainClient): (stanzas: Stanza[]) => Promise<Uint8Array> {
+	const beacons = new Map<number, Promise<RandomnessBeacon>>();
+	const cached: ChainClient = {
+		options: client.options,
+		chain: () => client.chain(),
+		latest: () => client.latest(),
+		get: (round) => {
+			if (!beacons.has(round)) beacons.set(round, client.get(round));
+			return beacons.get(round)!;
+		},
+	};
+	const standard = createTimelockDecrypter(cached);
+	return async (stanzas) => {
+		try {
+			return await standard(stanzas);
+		} catch (err) {
+			if (!(err instanceof Error && /rP check failed/.test(err.message))) throw err;
+			const stanza = stanzas.find((s) => s.type === "tlock");
+			if (!stanza) throw err;
+			const beacon = await fetchBeacon(cached, Number(stanza.args[0]));
+			const fileKey = unwrapLegacyRustTlock(Buffer.from(beacon.signature, "hex"), stanza.body);
+			if (!fileKey) throw err;
+			return fileKey;
+		}
+	};
+}
+
 export async function decrypt(ciphertext: string, client: ChainClient, now = Date.now()): Promise<{ plaintext: Uint8Array<ArrayBuffer>; info: CiphertextInfo }> {
 	const info = inspectCiphertext(ciphertext);
 	if (info.chainHash !== QUICKNET.hash) {
@@ -91,7 +126,8 @@ export async function decrypt(ciphertext: string, client: ChainClient, now = Dat
 	}
 	if (info.unlockAt > now) throw new TooEarlyError(info.round, info.unlockAt);
 	try {
-		const plaintext = await timelockDecrypt(extractArmor(ciphertext)?.block ?? ciphertext, client);
+		const block = extractArmor(ciphertext)?.block ?? ciphertext;
+		const plaintext = await decryptAge(isProbablyArmored(block) ? decodeArmor(block) : block, unwrapFileKey(client));
 		return { plaintext: new Uint8Array(plaintext), info };
 	} catch (err) {
 		if (err instanceof DrandUnavailableError) throw err;

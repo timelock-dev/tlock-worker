@@ -45,6 +45,10 @@
 		"blankslate",
 		"Kolkata",
 		"Lucide",
-		"nums"
+		"nums",
+		"ciphertexts",
+		"decrypter",
+		"unwrapper",
+		"SSWU"
 	]
 }

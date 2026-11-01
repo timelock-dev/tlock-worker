@@ -76,6 +76,12 @@ Unlocks: Sat, Nov 21, 2026 9:08 AM EST (2026-11-21 14:08:27 UTC)
 			</p>
 			<pre><code>sed -n '/^-----BEGIN AGE/,/^-----END AGE/p' message.txt | dee crypt --decrypt</code></pre>
 			<p>This site and the <a href="/docs#decrypt">API</a> accept the text with or without notes.</p>
+			<p>
+				About 1 in 11 messages made by the original timelock.dev (before October 22, 2026) or by <code>dee</code> 0.0.19 and earlier won't
+				open in Go <code>tle</code>, <code>tlock-js</code> or <code>dee</code> 0.0.20 and later. Those tools say
+				<code>invalid proof: rP check failed</code>. The message is fine. An older version of the Rust tlock library derived one value
+				differently from the other tools. This site opens these messages, and so does <code>dee</code> 0.0.19.
+			</p>
 
 			<h2 id="early">Can anyone open it early?</h2>
 			<p>
