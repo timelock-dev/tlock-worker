@@ -1,3 +1,17 @@
+diff --git a/node_modules/tlock-js/age/stream-cipher.js b/node_modules/tlock-js/age/stream-cipher.js
+index 6566038..2c6e654 100644
+--- a/node_modules/tlock-js/age/stream-cipher.js
++++ b/node_modules/tlock-js/age/stream-cipher.js
+@@ -18,7 +18,8 @@ const COUNTER_MAX = Math.pow(2, 32) - 1;
+ class STREAM {
+     static seal(plaintext, privateKey) {
+         const stream = new STREAM(privateKey);
+-        const chunks = Math.ceil(plaintext.length / CHUNK_SIZE);
++        // age requires a final chunk even for an empty payload
++        const chunks = Math.max(1, Math.ceil(plaintext.length / CHUNK_SIZE));
+         const ciphertext = new Uint8Array(plaintext.length + (chunks * TAG_SIZE));
+         for (let chunk64kb = 1; chunk64kb <= chunks; chunk64kb++) {
+             const start = chunk64kb - 1;
 diff --git a/node_modules/tlock-js/age/utils-crypto.js b/node_modules/tlock-js/age/utils-crypto.js
 index 821ff04..230a5b6 100644
 --- a/node_modules/tlock-js/age/utils-crypto.js

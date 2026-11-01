@@ -294,6 +294,17 @@ describe("legacy endpoints (original Rust worker API)", () => {
 		expect(new Uint8Array(await dec.arrayBuffer())).toEqual(bytes);
 	});
 
+	it("POST /encrypt/:round with an empty body still writes the final age chunk other tools require", async () => {
+		const { deps } = makeDeps({ now: () => AFTER });
+		const armored = await (await legacyEncrypt(post(`/encrypt/${BEACON.round}`, ""), String(BEACON.round), deps)).text();
+		const binary = Buffer.from(armored.split("\n").filter((l) => l && !l.startsWith("-----")).join(""), "base64");
+		const payload = binary.subarray(binary.indexOf("\n", binary.indexOf("\n--- ") + 1) + 1);
+		expect(payload.length).toBe(16 + 16); // nonce + Poly1305 tag of the empty final chunk
+		const dec = await legacyDecrypt(post("/decrypt", armored), deps);
+		expect(dec.status).toBe(200);
+		expect((await dec.arrayBuffer()).byteLength).toBe(0);
+	});
+
 	it("POST /decrypt accepts binary (non-armored) age from dee", async () => {
 		const { deps } = makeDeps({ now: () => AFTER });
 		const res = await legacyDecrypt(post("/decrypt", fixture("dee-binary.age")), deps);
