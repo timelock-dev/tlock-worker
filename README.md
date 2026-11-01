@@ -16,6 +16,10 @@ This repository is the site and API, deployed as the `tlock-worker` Cloudflare W
 Ciphertext is a standard age file, interchangeable with [dee](https://github.com/thibmeu/drand-rs), [tlock](https://github.com/drand/tlock) and
 output from the previous Rust worker (`tlock_age` 0.0.5). The test suite includes fixtures from both.
 
+The Rust `tlock` crate before 0.0.10 (the previous worker, `dee` 0.0.19 and earlier) derived the IBE scalar differently from
+Go and tlock-js for about 9.4% of messages, which then fail elsewhere with `invalid proof: rP check failed`. `src/lib/legacy-tlock.ts`
+falls back to that derivation so this site still opens them.
+
 ## Run locally
 
 Requires Node.js 22.12 or later.
@@ -31,6 +35,7 @@ npm run dev                 # http://localhost:4327, runs on workerd with local 
 | Command | What it does |
 | --- | --- |
 | `npm test` | Vitest: time parsing and formatting, round math, all API routes (offline, with a recorded drand beacon and SQLite) |
+| `TLE_BIN=… DEE_BIN=… npx vitest run test/interop.test.ts` | Round trips against Go `tle` and `dee` over the live drand relays (run in CI by `.github/workflows/test.yml`) |
 | `npm run check` | `astro check` plus type-checking the tests |
 | `npm run spellcheck` | cspell over sources and docs (`cspell.json` holds the project dictionary) |
 | `npm run linkcheck` | linkinator against a running `npm run preview`, including `#fragment` targets |
@@ -63,6 +68,7 @@ The app needs no secrets or environment variables. If D1 is missing or its migra
 ```
 src/lib/drand.ts      quicknet chain info (pinned), relay client with fallback, round <-> time math
 src/lib/tlock.ts      encrypt/decrypt wrappers around tlock-js, ciphertext inspection, armor extraction, typed errors
+src/lib/legacy-tlock.ts  decoder fallback for messages from the Rust tlock crate before 0.0.10 (the original worker)
 src/lib/notes.ts      optional plain notes above the armored block (instructions, unlock time)
 src/lib/status.ts     lock status panels for the encrypt result and decrypt
 src/lib/verify.ts     live drand check behind the header badge
@@ -74,7 +80,7 @@ src/lib/unlock.ts     unlock-time picker logic: duration and date validation, ca
 src/pages/            Astro pages (the homepage is server-rendered, the rest prerendered) and thin endpoint wrappers
 src/components/       encrypt form (unlock-time picker), decrypt form, recent activity, logo
 migrations/           D1 schema
-patches/              tlock-js patch: Web Crypto randomness for workerd, no beacon logging
+patches/              tlock-js patch: Web Crypto randomness for workerd, no beacon logging, final age chunk for empty messages
 ```
 
 ## Privacy
