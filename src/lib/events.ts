@@ -29,13 +29,27 @@ export interface EventsDb {
 	};
 }
 
+const DAY_MS = 86400_000;
+
 export async function recordEvent(
 	db: EventsDb,
 	e: { type: EventType; source: EventSource; round: number; unlockAt: number; createdAt?: number },
 ): Promise<void> {
+	const createdAt = e.createdAt ?? Date.now();
 	await db
 		.prepare("INSERT INTO events (type, source, created_at, round, unlock_at) VALUES (?, ?, ?, ?, ?)")
-		.bind(e.type, e.source, e.createdAt ?? Date.now(), e.round, e.unlockAt)
+		.bind(e.type, e.source, createdAt, e.round, e.unlockAt)
+		.run();
+	const encrypt = e.type === "encrypt" ? 1 : 0;
+	await db
+		.prepare(
+			`INSERT INTO daily_stats (day, encrypted, decrypted, lock_ms_sum) VALUES (?, ?, ?, ?)
+			ON CONFLICT (day) DO UPDATE SET
+				encrypted = encrypted + excluded.encrypted,
+				decrypted = decrypted + excluded.decrypted,
+				lock_ms_sum = lock_ms_sum + excluded.lock_ms_sum`,
+		)
+		.bind(Math.floor(createdAt / DAY_MS), encrypt, 1 - encrypt, encrypt ? Math.max(e.unlockAt - createdAt, 0) : 0)
 		.run();
 }
 
@@ -49,23 +63,25 @@ export interface EventStats {
 
 export const STATS_DAYS = 30;
 
+/** Reads the per-day rollup: at most `days + 1` rows, however busy the site is. The window is whole UTC days. */
 export async function eventStats(db: EventsDb, now: number = Date.now(), days: number = STATS_DAYS): Promise<EventStats> {
 	const { results } = await db
 		.prepare(
 			`SELECT
-				COALESCE(SUM(type = 'encrypt'), 0) AS encrypted,
-				COALESCE(SUM(type = 'decrypt'), 0) AS decrypted,
-				AVG(CASE WHEN type = 'encrypt' THEN MAX(unlock_at - created_at, 0) END) AS avg_lock_ms
-			FROM events WHERE created_at >= ?`,
+				COALESCE(SUM(encrypted), 0) AS encrypted,
+				COALESCE(SUM(decrypted), 0) AS decrypted,
+				COALESCE(SUM(lock_ms_sum), 0) AS lock_ms_sum
+			FROM daily_stats WHERE day >= ?`,
 		)
-		.bind(now - days * 86400_000)
-		.all<{ encrypted: number; decrypted: number; avg_lock_ms: number | null }>();
-	const row = results[0] ?? { encrypted: 0, decrypted: 0, avg_lock_ms: null };
+		.bind(Math.floor(now / DAY_MS) - days)
+		.all<{ encrypted: number; decrypted: number; lock_ms_sum: number }>();
+	const row = results[0] ?? { encrypted: 0, decrypted: 0, lock_ms_sum: 0 };
+	const encrypted = Number(row.encrypted);
 	return {
 		days,
-		encrypted: Number(row.encrypted),
+		encrypted,
 		decrypted: Number(row.decrypted),
-		averageLockSeconds: row.avg_lock_ms === null ? null : Math.round(row.avg_lock_ms / 1000),
+		averageLockSeconds: encrypted === 0 ? null : Math.round(Number(row.lock_ms_sum) / encrypted / 1000),
 	};
 }
 

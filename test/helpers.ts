@@ -14,7 +14,7 @@ export const BEACON = {
 /** In-memory SQLite with the D1 surface used by the app and the real migration applied. */
 export function sqliteDb(): EventsDb & { rows: () => Record<string, unknown>[] } {
 	const db = new DatabaseSync(":memory:");
-	db.exec(readFileSync(new URL("../migrations/0001_events.sql", import.meta.url), "utf8"));
+	for (const m of ["0001_events.sql", "0002_daily_stats.sql"]) db.exec(readFileSync(new URL(`../migrations/${m}`, import.meta.url), "utf8"));
 	return {
 		prepare: (sql) => ({
 			bind: (...values) => ({

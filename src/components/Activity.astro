@@ -79,9 +79,8 @@ const { events, stats, now } = Astro.props;
 			events = null;
 		}
 		render();
+		// No polling: the server renders fresh data on page load, and we refetch only after this visitor's own encrypt/decrypt.
 		window.addEventListener(EVENT_REPORTED, refresh);
-		refresh();
-		setInterval(refresh, 30_000);
-		setInterval(render, 15_000);
+		setInterval(render, 15_000); // re-renders relative times locally; no network
 	}
 </script>
