@@ -8,7 +8,7 @@
 			<div class="field">
 				<label for="decrypt-input">Encrypted message</label>
 				<textarea id="decrypt-input" class="code" rows="5" required spellcheck="false" placeholder="-----BEGIN AGE ENCRYPTED FILE-----&#10;…&#10;-----END AGE ENCRYPTED FILE-----"></textarea>
-				<p class="hint">Paste the whole thing. Notes above or below the block are fine; the site reads only the block.</p>
+				<p class="hint">Paste the whole thing, or a timelock.dev link. Notes above or below the block are fine; the site reads only the block.</p>
 			</div>
 			<div data-lock-panel aria-live="polite" hidden></div>
 			<p class="status" data-status hidden aria-live="polite"></p>
@@ -85,6 +85,12 @@
 		info = null;
 		hidePanel();
 		if (!text) return show("", "");
+		// A pasted share link goes to its page, which counts down or decrypts by itself.
+		const link = /^(?:https?:\/\/[^\s/]+)?\/m\/([0-9a-f-]{36})\/?$/i.exec(text);
+		if (link) {
+			location.assign(`/m/${link[1].toLowerCase()}`);
+			return;
+		}
 		try {
 			info = inspectCiphertext(text);
 			renderInfo();

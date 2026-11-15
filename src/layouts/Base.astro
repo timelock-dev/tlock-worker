@@ -8,9 +8,13 @@ import type { IconName } from "../lib/icons";
 interface Props {
 	title: string;
 	description: string;
+	/** Unlisted pages (hosted messages): kept out of search engines and never send their URL as a referrer. */
+	noindex?: boolean;
+	/** schema.org structured data for this page. */
+	jsonLd?: Record<string, unknown>;
 }
 
-const { title, description } = Astro.props;
+const { title, description, noindex = false, jsonLd } = Astro.props;
 const path = Astro.url.pathname.replace(/(\.html)?\/?$/, "") || "/";
 const nav: { href: string; label: string; icon: IconName }[] = [
 	{ href: "/how-it-works", label: "How it works", icon: "book" },
@@ -19,6 +23,7 @@ const nav: { href: string; label: string; icon: IconName }[] = [
 ];
 const repo = "https://github.com/timelock-dev/tlock-worker";
 const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ""), Astro.site);
+const ogImage = new URL("/og.png", Astro.site);
 ---
 
 <!doctype html>
@@ -28,7 +33,8 @@ const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ""), Astro.site)
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<title>{title}</title>
 		<meta name="description" content={description} />
-		<link rel="canonical" href={canonical} />
+		{noindex ? <meta name="robots" content="noindex, nofollow, noarchive" /> : <link rel="canonical" href={canonical} />}
+		{noindex && <meta name="referrer" content="no-referrer" />}
 		<link rel="icon" href="/favicon.ico" sizes="32x32" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -36,6 +42,17 @@ const canonical = new URL(Astro.url.pathname.replace(/\.html$/, ""), Astro.site)
 		<meta property="og:description" content={description} />
 		<meta property="og:type" content="website" />
 		<meta property="og:url" content={canonical} />
+		<meta property="og:site_name" content="timelock.dev" />
+		<meta property="og:image" content={ogImage} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="timelock.dev: send a message into the future" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={ogImage} />
+		<meta name="twitter:creator" content="@_alanreed" />
+		{jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd).replace(/</g, "\\u003c")} />}
 		<meta name="theme-color" content="#ffffff" />
 	</head>
 	<body>

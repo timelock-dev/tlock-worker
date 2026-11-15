@@ -15,3 +15,12 @@ binding = "DB"
 database_name = "timelock-events"
 database_id = "d53294f6-644e-4afc-82cb-40f0e421d1c9"
 migrations_dir = "migrations"
+
+# Per-IP limit on creating hosted message links (POST /api/messages). The key is counted at Cloudflare's edge and is not stored by the app.
+[[ratelimits]]
+name = "MESSAGE_LIMITER"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 10
+  period = 60

@@ -1,0 +1,6 @@
+# Hosted messages (/m/...) are unlisted. They are kept out of search with a noindex header and meta tag,
+# which only works if crawlers are allowed to fetch them, so they are deliberately not disallowed here.
+User-agent: *
+Allow: /
+
+Sitemap: https://timelock.dev/sitemap.xml

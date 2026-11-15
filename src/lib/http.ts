@@ -10,6 +10,17 @@ export function isApiPath(pathname: string): boolean {
 	return pathname.startsWith("/api/") || pathname.startsWith("/encrypt/") || pathname === "/decrypt";
 }
 
+/** Hosted message pages and their API: reachable only by link, so they must never be indexed or leak their URL. */
+export function isUnlistedPath(pathname: string): boolean {
+	return pathname.startsWith("/m/") || pathname === "/api/messages" || pathname.startsWith("/api/messages/");
+}
+
+export const UNLISTED_HEADERS: Record<string, string> = {
+	"X-Robots-Tag": "noindex, nofollow, noarchive",
+	"Referrer-Policy": "no-referrer",
+	"Cache-Control": "no-store",
+};
+
 export type ErrorCode =
 	| "invalid_json"
 	| "invalid_request"
@@ -19,6 +30,8 @@ export type ErrorCode =
 	| "unsupported_chain"
 	| "too_early"
 	| "forbidden"
+	| "not_found"
+	| "rate_limited"
 	| "drand_unavailable"
 	| "feed_unavailable"
 	| "internal_error";

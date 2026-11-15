@@ -12,9 +12,9 @@ export const BEACON = {
 };
 
 /** In-memory SQLite with the D1 surface used by the app and the real migration applied. */
-export function sqliteDb(): EventsDb & { rows: () => Record<string, unknown>[] } {
+export function sqliteDb(): EventsDb & { rows: () => Record<string, unknown>[]; messages: () => Record<string, unknown>[] } {
 	const db = new DatabaseSync(":memory:");
-	for (const m of ["0001_events.sql", "0002_daily_stats.sql"]) db.exec(readFileSync(new URL(`../migrations/${m}`, import.meta.url), "utf8"));
+	for (const m of ["0001_events.sql", "0002_daily_stats.sql", "0003_messages.sql"]) db.exec(readFileSync(new URL(`../migrations/${m}`, import.meta.url), "utf8"));
 	return {
 		prepare: (sql) => ({
 			bind: (...values) => ({
@@ -23,6 +23,7 @@ export function sqliteDb(): EventsDb & { rows: () => Record<string, unknown>[] }
 			}),
 		}),
 		rows: () => db.prepare("SELECT * FROM events ORDER BY id").all() as Record<string, unknown>[],
+		messages: () => db.prepare("SELECT * FROM messages ORDER BY created_at, id").all() as Record<string, unknown>[],
 	};
 }
 
