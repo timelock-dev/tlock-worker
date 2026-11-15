@@ -1423,33 +1423,6 @@ fieldset {
 	font-size: 13px;
 }
 
-.host-check {
-	display: flex;
-	align-items: flex-start;
-	gap: 10px;
-	margin: 0 0 16px;
-	font-weight: 400;
-	cursor: pointer;
-}
-
-.host-check input {
-	flex: none;
-	width: 18px;
-	height: 18px;
-	margin: 2px 0 0;
-	accent-color: var(--green);
-}
-
-.host-check strong {
-	display: block;
-	font-size: 15px;
-}
-
-.host-check .hint {
-	display: block;
-	margin: 2px 0 0;
-}
-
 .cipher-details {
 	margin: 0 0 16px;
 	border: 1px solid var(--border);

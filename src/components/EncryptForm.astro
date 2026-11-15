@@ -90,16 +90,9 @@ const presets: [amount: number, unit: string, label: string][] = [
 			</div>
 			<p class="status err" data-error role="alert" hidden></p>
 
-			<label class="host-check">
-				<input type="checkbox" data-host checked />
-				<span>
-					<strong>Create a share link</strong>
-					<span class="hint" data-host-hint>We store the encrypted text so the link works. Your message never leaves this page.</span>
-				</span>
-			</label>
-
 			<div class="row" data-submit-row>
 				<button class="btn big" type="submit">Encrypt</button>
+				<span class="hint">You get a link to share. We store the encrypted text, never your message.</span>
 			</div>
 		</form>
 
@@ -116,8 +109,8 @@ const presets: [amount: number, unit: string, label: string][] = [
 					<button class="btn big secondary" type="button" data-share-link hidden>Share</button>
 				</div>
 				<p class="hint">
-					The page shows a countdown, then the message. We stored the encrypted text, never your message. The link is unlisted: only people you
-					send it to can find it.
+					The page shows a countdown, then the message. We stored the encrypted text, never your message. We don't list the link anywhere:
+					people find it only if you share it.
 				</p>
 			</div>
 			<div data-result-status></div>
@@ -418,14 +411,7 @@ const presets: [amount: number, unit: string, label: string][] = [
 	let armored = "";
 	let shareUrl = "";
 
-	const hostBox = $<HTMLInputElement>("[data-host]");
-	const HOST_HINTS = {
-		on: "We store the encrypted text so the link works. Your message never leaves this page.",
-		off: "Nothing is stored. You get the encrypted text to keep and send yourself.",
-	};
-	hostBox.addEventListener("change", () => ($("[data-host-hint]").textContent = hostBox.checked ? HOST_HINTS.on : HOST_HINTS.off));
-
-	/** Uploads the encrypted block (never the message) and returns its unlisted link. */
+	/** Uploads the encrypted block (never the message) and returns its link. */
 	async function createLink(block: string): Promise<string> {
 		const res = await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ciphertext: block }) });
 		const body = (await res.json().catch(() => null)) as { url?: string; error?: { message?: string } } | null;
@@ -594,13 +580,11 @@ const presets: [amount: number, unit: string, label: string][] = [
 			noteZone = mode === "date" ? zone : browserZone;
 			shareUrl = "";
 			let hostError = "";
-			if (hostBox.checked) {
-				button.textContent = "Creating link…";
-				try {
-					shareUrl = await createLink(armored);
-				} catch (err) {
-					hostError = `No share link was created. ${err instanceof Error ? err.message : String(err)} Your message is still encrypted: copy the encrypted text below.`;
-				}
+			button.textContent = "Creating link…";
+			try {
+				shareUrl = await createLink(armored);
+			} catch (err) {
+				hostError = `No share link was created. ${err instanceof Error ? err.message : String(err)} Your message is still encrypted: copy the encrypted text below.`;
 			}
 			$<HTMLTextAreaElement>("#ciphertext").value = armored;
 			message.value = "";

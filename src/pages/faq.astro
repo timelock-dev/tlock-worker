@@ -34,12 +34,12 @@ const toc = [
 			<h2 id="prove">Can I prove I knew something early?</h2>
 			<p>Yes. Encrypt your message with an unlock time after the event and share the link.</p>
 			<ol>
-				<li>The page records when we received the encrypted text ("Sealed") and shows a countdown.</li>
+				<li>The page records when we received the encrypted text ("Locked") and shows a countdown.</li>
 				<li>At the unlock time, anyone with the link can read the message.</li>
 				<li>Nobody, including you, can read or change it in between.</li>
 			</ol>
 			<p>
-				The sealed time is our server's clock, so it is only as trustworthy as we are. For proof that doesn't depend on us, post the link or the
+				The locked time is our server's clock, so it is only as trustworthy as we are. For proof that doesn't depend on us, post the link or the
 				SHA-256 shown on the page somewhere public that records the date, such as a social post or a git commit. That timestamp proves
 				<em>when</em> you had it. The unlock proves <em>what</em> it said.
 			</p>
@@ -49,15 +49,14 @@ const toc = [
 				The encrypted text, its SHA-256, the drand round and the time we received it. Nothing else. We never receive the message itself: your
 				browser encrypts it first, and the page decrypts it in the reader's browser. After the unlock time, anyone who has the encrypted text can
 				decrypt it. That includes us, but we don't. Hosted messages can't be edited. To have one removed, email
-				<a href="mailto:contact@timelock.dev">contact@timelock.dev</a>. If you'd rather we store nothing, untick "Create a share link" and keep
-				the encrypted text yourself.
+				<a href="mailto:contact@timelock.dev">contact@timelock.dev</a>. If you'd rather we store nothing, <a href="/how-it-works#offline">encrypt offline</a> and keep the encrypted text yourself.
 			</p>
 
 			<h2 id="find">Can other people find my message?</h2>
 			<p>
-				Only if they have the link. The address contains a random 122-bit id that can't be guessed. Message pages are not listed on this site,
-				not in the <a href="/#activity">activity list</a>, and are marked so search engines don't index them. Anyone you send the link to can
-				forward it, so treat it like the message itself.
+				Only if they have the link. The address contains a random 122-bit id that can't be guessed. Message pages are not listed on this site
+				or in the <a href="/#activity">activity list</a>. They are ordinary public pages, though: if you post the link somewhere public, search
+				engines can find and index it. Anyone you send the link to can forward it, so treat it like the message itself.
 			</p>
 
 			<h2 id="encrypted-when">Can you tell when a message was encrypted?</h2>
@@ -113,8 +112,8 @@ Unlocks: Sat, Nov 21, 2026 9:08 AM EST (2026-11-21 14:08:27 UTC)
 
 			<h2 id="lost">What if I lose the encrypted text?</h2>
 			<p>
-				If you made a share link, the encrypted text is still on its page. If you didn't, the message is gone: we have no copy, and there is no
-				recovery. If you lose the link itself, we can't look it up for you.
+				The encrypted text is still on the share link's page. If you lose the link itself, we can't look it up for you, and without the link or
+				the encrypted text the message is gone.
 			</p>
 
 			<h2 id="drand-stops">What if drand stops?</h2>

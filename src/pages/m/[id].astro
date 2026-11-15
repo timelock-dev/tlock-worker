@@ -2,8 +2,8 @@
 import { env } from "cloudflare:workers";
 import Icon from "../../components/Icon.astro";
 import Base from "../../layouts/Base.astro";
-import { UNLISTED_HEADERS } from "../../lib/http";
-import { countdownSegments, formatUtcShort, lockProgress, messageMeta, sealedAheadText, timerHtml } from "../../lib/message-view";
+import { messageHeaders } from "../../lib/http";
+import { countdownSegments, formatUtcShort, lockedEarlierText, lockProgress, messageMeta, timerHtml } from "../../lib/message-view";
 import { getMessage, type StoredMessage } from "../../lib/messages";
 import { formatUtc } from "../../lib/time";
 
@@ -24,8 +24,8 @@ if (env.DB) {
 	failed = true;
 }
 if (!message) Astro.response.status = failed ? 503 : 404;
-// Also set by the middleware. Repeated here so this page can never be served indexable or cacheable.
-for (const [k, v] of Object.entries(UNLISTED_HEADERS)) Astro.response.headers.set(k, v);
+// Also set by the middleware. Repeated here so this page can never be cached or leak its address as a referrer.
+for (const [k, v] of Object.entries(messageHeaders("/m/") ?? {})) Astro.response.headers.set(k, v);
 
 const unlocked = message !== null && message.unlockAt <= now;
 const meta = message
@@ -34,7 +34,7 @@ const meta = message
 const iso = (ms: number) => new Date(ms).toISOString();
 ---
 
-<Base title={meta.title} description={meta.description} noindex>
+<Base title={meta.title} description={meta.description} noindex={!message}>
 	<div class="container message-page">
 		{
 			message ? (
@@ -79,9 +79,11 @@ const iso = (ms: number) => new Date(ms).toISOString();
 								<p class="stage-status">Turn on JavaScript to decrypt here, or open the encrypted text below with any tlock tool.</p>
 							</noscript>
 							<p class="stage-when">
-								Locked until <time data-local datetime={iso(message.unlockAt)}>{formatUtcShort(message.unlockAt)}</time>
+								Unlocked <time data-local datetime={iso(message.unlockAt)}>{formatUtcShort(message.unlockAt)}</time>
 							</p>
-							<p class="stage-meta">{sealedAheadText(message.createdAt, message.unlockAt)}</p>
+							<p class="stage-meta">
+								{lockedEarlierText(message.createdAt, message.unlockAt)} <time data-local datetime={iso(message.createdAt)}>{formatUtcShort(message.createdAt)}</time>
+							</p>
 						</div>
 
 						<div class="stage-actions">
@@ -109,7 +111,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 						<li>
 							<Icon name="check" />
 							<span>
-								<strong>Unlisted.</strong> This page is not in search engines or anywhere on our site. Only people with the link can find it.
+								<strong>Not listed on our site.</strong> We don't link to this page anywhere. People find it only through the link.
 							</span>
 						</li>
 					</ul>
@@ -118,7 +120,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 						<summary>Proof and encrypted text</summary>
 						<div class="proof-body">
 							<dl class="proof-facts">
-								<dt>Sealed</dt>
+								<dt>Locked</dt>
 								<dd>
 									<time data-local datetime={iso(message.createdAt)}>{formatUtcShort(message.createdAt)}</time>
 									<span class="muted">{formatUtc(message.createdAt)}</span>
@@ -142,7 +144,7 @@ const iso = (ms: number) => new Date(ms).toISOString();
 								<button class="btn secondary" type="button" data-download-cipher>Download .age file</button>
 							</div>
 							<p class="hint">
-								“Sealed” is when our server received the encrypted text. It has not changed since: the SHA-256 above is the hash of the downloaded
+								“Locked” is when our server received the encrypted text. It has not changed since: the SHA-256 above is the hash of the downloaded
 								file. To prove the date without trusting us, post that hash somewhere public today. After the unlock time, the file also opens with
 								<a href="/how-it-works#offline">other tlock tools</a>.
 							</p>

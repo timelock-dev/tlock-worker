@@ -58,10 +58,10 @@ export function formatUtcShort(ms: number): string {
 	return `${text.replace(/ /g, " ")} UTC`;
 }
 
-/** "Sealed 7 days before it could be read." */
-export function sealedAheadText(createdAt: number, unlockAt: number): string {
+/** Lead-in for the lock time on an unlocked page: "Locked 7 days earlier, on" (the date follows). */
+export function lockedEarlierText(createdAt: number, unlockAt: number): string {
 	const seconds = Math.round((unlockAt - createdAt) / 1000);
-	return seconds > 0 ? `Sealed ${formatSpan(seconds)} before it could be read.` : "";
+	return seconds > 0 ? `Locked ${formatSpan(seconds)} earlier, on` : "Locked on";
 }
 
 /** Page title and description. These show in link previews, so they never contain anything but times. */
@@ -69,11 +69,11 @@ export function messageMeta(m: { createdAt: number; unlockAt: number }, now: num
 	if (m.unlockAt > now) {
 		return {
 			title: `Locked message · opens ${formatUtcShort(m.unlockAt)} · timelock.dev`,
-			description: `This message is sealed with timelock encryption. Nobody can read it before ${formatUtcShort(m.unlockAt)}, not even the person who wrote it.`,
+			description: `This message is locked with timelock encryption. Nobody can read it before ${formatUtcShort(m.unlockAt)}, not even the person who wrote it.`,
 		};
 	}
 	return {
-		title: `Unlocked message · sealed ${formatUtcShort(m.createdAt)} · timelock.dev`,
-		description: `Sealed on ${formatUtcShort(m.createdAt)} and locked until ${formatUtcShort(m.unlockAt)}. Open the link to read it.`,
+		title: `Unlocked message · locked ${formatUtcShort(m.createdAt)} · timelock.dev`,
+		description: `Locked on ${formatUtcShort(m.createdAt)} and unlocked on ${formatUtcShort(m.unlockAt)}. Nobody could read it in between. Open the link to read it.`,
 	};
 }

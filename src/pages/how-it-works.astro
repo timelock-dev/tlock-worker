@@ -87,7 +87,7 @@ const toc = [
 					<tbody>
 						<tr><th>Where encryption happens</th><td>In your browser</td><td>On our Cloudflare Worker</td><td>On your computer</td></tr>
 						<tr><th>We see your message</th><td>No</td><td><strong>Yes</strong>, in memory during the request</td><td>No</td></tr>
-						<tr><th>We see the encrypted text</th><td>Only if you create a share link. Then we store it.</td><td>Yes, in memory during the request. Stored only if you host it.</td><td>No</td></tr>
+						<tr><th>We see the encrypted text</th><td><strong>Yes</strong>, and we store it for the share link</td><td>Yes, in memory during the request. Stored only if you host it.</td><td>No</td></tr>
 						<tr><th>drand relays see</th><td>Your IP address and the round you decrypt</td><td>Our Worker asking for the round</td><td>Your IP address and the round</td></tr>
 						<tr><th>Shown in recent activity</th><td>Type, round and time, reported by your browser</td><td>Type, round and time</td><td>Nothing</td></tr>
 					</tbody>
@@ -101,10 +101,10 @@ const toc = [
 				round and its unlock time. The <a href="/#activity">recent activity</a> list on the homepage shows these rows.
 			</p>
 			<p>
-				<strong>Share links store the encrypted text, never the message.</strong> When you create a share link, we also store the encrypted block,
+				<strong>Share links store the encrypted text, never the message.</strong> Every message encrypted on the website gets a share link, so we also store the encrypted block,
 				its SHA-256, a random id and how many times its page reported a decryption. Plain notes around the block are dropped. The page at that
-				link decrypts in the reader's browser. Message pages are unlisted: nothing on this site links to them, and they tell search engines not to
-				index them. After the unlock time, anyone with the encrypted text can decrypt it, including us.
+				link decrypts in the reader's browser. Nothing on this site links to message pages, so people find one only through its link. If a link is posted publicly, search
+				engines can index it. After the unlock time, anyone with the encrypted text can decrypt it, including us.
 			</p>
 			<p>
 				We do not store or log your message, IP addresses, browser details or cookies. Creating share links is rate limited by IP address at
@@ -158,7 +158,7 @@ dee crypt --decrypt message.age</code></pre>
 				</li>
 				<li>
 					<strong>Nobody can open it early.</strong> Not you, not us, and not if you change your mind. There is no reset and no recovery. If you
-					lose the encrypted text and didn't create a share link, the message is gone.
+					lose both the link and the encrypted text, the message is gone.
 				</li>
 				<li>
 					<strong>A share link is only as private as the link.</strong> Anyone who gets it can read the message after the unlock time, and can see

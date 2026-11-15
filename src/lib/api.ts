@@ -300,7 +300,7 @@ const messageFields = (m: StoredMessage, origin: string) => ({
 const sameOrigin = (request: Request) => request.headers.get("Origin") === new URL(request.url).origin;
 
 /**
- * POST /api/messages — stores an already-encrypted block and returns its unlisted link.
+ * POST /api/messages — stores an already-encrypted block and returns its link.
  * Only the armored block is kept: notes around it are dropped, so no plain text is ever stored.
  */
 export async function postMessage(request: Request, deps: Deps): Promise<Response> {

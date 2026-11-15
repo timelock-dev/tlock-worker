@@ -10,16 +10,17 @@ export function isApiPath(pathname: string): boolean {
 	return pathname.startsWith("/api/") || pathname.startsWith("/encrypt/") || pathname === "/decrypt";
 }
 
-/** Hosted message pages and their API: reachable only by link, so they must never be indexed or leak their URL. */
-export function isUnlistedPath(pathname: string): boolean {
-	return pathname.startsWith("/m/") || pathname === "/api/messages" || pathname.startsWith("/api/messages/");
+/**
+ * Extra headers for hosted messages, or null for any other path.
+ * Pages (/m/<id>) may be indexed if a search engine finds the link, but never send their URL as a referrer and are never
+ * cached, because the countdown runs on the server clock. The JSON API for messages is kept out of search.
+ */
+export function messageHeaders(pathname: string): Record<string, string> | null {
+	const base = { "Referrer-Policy": "no-referrer", "Cache-Control": "no-store" };
+	if (pathname.startsWith("/m/")) return base;
+	if (pathname === "/api/messages" || pathname.startsWith("/api/messages/")) return { ...base, "X-Robots-Tag": "noindex" };
+	return null;
 }
-
-export const UNLISTED_HEADERS: Record<string, string> = {
-	"X-Robots-Tag": "noindex, nofollow, noarchive",
-	"Referrer-Policy": "no-referrer",
-	"Cache-Control": "no-store",
-};
 
 export type ErrorCode =
 	| "invalid_json"

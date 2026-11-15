@@ -8,7 +8,7 @@ import type { IconName } from "../lib/icons";
 interface Props {
 	title: string;
 	description: string;
-	/** Unlisted pages (hosted messages): kept out of search engines and never send their URL as a referrer. */
+	/** Keeps the page out of search engines (error states such as a message that doesn't exist). */
 	noindex?: boolean;
 	/** schema.org structured data for this page. */
 	jsonLd?: Record<string, unknown>;
@@ -34,7 +34,6 @@ const ogImage = new URL("/og.png", Astro.site);
 		<title>{title}</title>
 		<meta name="description" content={description} />
 		{noindex ? <meta name="robots" content="noindex, nofollow, noarchive" /> : <link rel="canonical" href={canonical} />}
-		{noindex && <meta name="referrer" content="no-referrer" />}
 		<link rel="icon" href="/favicon.ico" sizes="32x32" />
 		<link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />

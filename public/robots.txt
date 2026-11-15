@@ -1,5 +1,4 @@
-# Hosted messages (/m/...) are unlisted. They are kept out of search with a noindex header and meta tag,
-# which only works if crawlers are allowed to fetch them, so they are deliberately not disallowed here.
+# Hosted messages (/m/...) are not linked from the site or the sitemap, but they may be indexed if a link is posted publicly.
 User-agent: *
 Allow: /
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { apiEncrypt, getMessageJson, getStats, LIMITS, postMessage, postMessageOpened } from "../src/lib/api";
 import { roundTime } from "../src/lib/drand";
-import { UNLISTED_HEADERS, isApiPath, isUnlistedPath } from "../src/lib/http";
+import { isApiPath, messageHeaders } from "../src/lib/http";
 import { MESSAGE_ID, getMessage, sha256Hex } from "../src/lib/messages";
 import { BEACON, makeDeps, postJson } from "./helpers";
 
@@ -198,13 +198,19 @@ describe("POST /api/messages/:id/opened", () => {
 	});
 });
 
-describe("unlisted paths", () => {
-	it("marks message pages and their API as noindex, no-referrer and uncacheable", () => {
-		expect(["/m/abc", "/api/messages", "/api/messages/abc", "/api/messages/abc/opened"].every(isUnlistedPath)).toBe(true);
-		expect(["/", "/m", "/faq", "/api/events", "/api/messages-list", "/how-it-works"].some(isUnlistedPath)).toBe(false);
-		expect(UNLISTED_HEADERS["X-Robots-Tag"]).toContain("noindex");
-		expect(UNLISTED_HEADERS["Referrer-Policy"]).toBe("no-referrer");
-		expect(UNLISTED_HEADERS["Cache-Control"]).toBe("no-store");
+describe("message response headers", () => {
+	it("lets message pages be indexed but never cached or sent as a referrer", () => {
+		expect(messageHeaders("/m/abc")).toEqual({ "Referrer-Policy": "no-referrer", "Cache-Control": "no-store" });
+	});
+
+	it("keeps the message JSON API out of search", () => {
+		for (const path of ["/api/messages", "/api/messages/abc", "/api/messages/abc/opened"]) {
+			expect(messageHeaders(path)).toEqual({ "Referrer-Policy": "no-referrer", "Cache-Control": "no-store", "X-Robots-Tag": "noindex" });
+		}
+	});
+
+	it("leaves every other path alone", () => {
+		for (const path of ["/", "/m", "/faq", "/api/events", "/api/messages-list", "/how-it-works"]) expect(messageHeaders(path)).toBeNull();
 		expect(isApiPath("/api/messages")).toBe(true);
 	});
 });

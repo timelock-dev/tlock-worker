@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { countdownSegments, formatUtcShort, lockProgress, messageMeta, sealedAheadText, timerHtml } from "../src/lib/message-view";
+import { countdownSegments, formatUtcShort, lockedEarlierText, lockProgress, messageMeta, timerHtml } from "../src/lib/message-view";
 
 const digits = (s: number) =>
 	countdownSegments(s)
@@ -52,13 +52,13 @@ describe("message page text", () => {
 
 	it("describes an unlocked message from the unlock time on", () => {
 		const meta = messageMeta(m, m.unlockAt);
-		expect(meta.title).toBe("Unlocked message · sealed Nov 14, 2026, 9:02 PM UTC · timelock.dev");
-		expect(meta.description).toContain("locked until Nov 21, 2026, 2:08 PM UTC");
+		expect(meta.title).toBe("Unlocked message · locked Nov 14, 2026, 9:02 PM UTC · timelock.dev");
+		expect(meta.description).toContain("unlocked on Nov 21, 2026, 2:08 PM UTC");
 	});
 
-	it("says how far ahead it was sealed", () => {
-		expect(sealedAheadText(m.createdAt, m.unlockAt)).toBe("Sealed 6 days 17 hours before it could be read.");
-		expect(sealedAheadText(m.unlockAt, m.unlockAt)).toBe("");
+	it("says how long before the unlock it was locked", () => {
+		expect(lockedEarlierText(m.createdAt, m.unlockAt)).toBe("Locked 6 days 17 hours earlier, on");
+		expect(lockedEarlierText(m.unlockAt, m.unlockAt)).toBe("Locked on");
 	});
 
 	it("clamps progress to 0..1", () => {
