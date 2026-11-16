@@ -90,38 +90,63 @@ const presets: [amount: number, unit: string, label: string][] = [
 			</div>
 			<p class="status err" data-error role="alert" hidden></p>
 
-			<fieldset class="field notes-options" data-notes-options>
-				<legend>Plain notes above the encrypted block</legend>
-				<label class="check"><input type="checkbox" data-note="instructions" checked /> Include unlock instructions</label>
-				<label class="check"><input type="checkbox" data-note="unlockTime" checked /> Include human-readable unlock time</label>
-				<p class="hint">Notes aren't encrypted, and anyone can edit them. Other tools need only the BEGIN…END block. <a href="/faq#notes">About notes</a></p>
-			</fieldset>
-
 			<div class="row" data-submit-row>
-				<button class="btn" type="submit">Encrypt</button>
-				<span class="hint">Your message is encrypted on this page and is not sent to us.</span>
+				<button class="btn big" type="submit">Encrypt</button>
+				<span class="hint">You get a link to share. We store the encrypted text, never your message.</span>
 			</div>
 		</form>
 
 		<div data-result hidden>
+			<div class="share-result" data-share-result hidden>
+				<p class="share-result-title"><Icon name="lock" /><span>Locked. Share this link.</span></p>
+				<p class="share-result-when" data-share-when></p>
+				<div class="share-link-row">
+					<input type="text" data-share-url readonly aria-label="Share link" />
+					<button class="btn big" type="button" data-copy-link>Copy link</button>
+				</div>
+				<div class="row">
+					<a class="btn big secondary" data-open-link href="/">Open the page</a>
+					<button class="btn big secondary" type="button" data-share-link hidden>Share</button>
+				</div>
+				<p class="hint">
+					The page shows a countdown, then the message. We stored the encrypted text, never your message. We don't list the link anywhere:
+					people find it only if you share it.
+				</p>
+			</div>
 			<div data-result-status></div>
-			<div class="block-head">
-				<label for="ciphertext">Encrypted block</label>
-				<button type="button" class="link-btn" data-copy-block>Copy block only</button>
-			</div>
-			<textarea id="ciphertext" class="code" rows="7" readonly spellcheck="false"></textarea>
-			<div data-notes-slot></div>
-			<div class="copy-preview">
-				<p class="copy-preview-title" id="copy-preview-title">Copy and Download give you exactly this</p>
-				<pre data-preview aria-labelledby="copy-preview-title" tabindex="0"></pre>
-			</div>
-			<div class="row result-actions">
-				<button class="btn" type="button" data-copy>Copy</button>
-				<button class="btn secondary" type="button" data-download>Download .age file</button>
-				<button class="btn secondary" type="button" data-to-decrypt><Icon name="arrowDown" />Paste into Decrypt below</button>
+			<p class="status err" data-host-error role="alert" hidden></p>
+
+			<details class="cipher-details" data-cipher-details>
+				<summary>Encrypted text</summary>
+				<div class="cipher-details-body">
+					<div class="block-head">
+						<label for="ciphertext">Encrypted block</label>
+						<button type="button" class="link-btn" data-copy-block>Copy block only</button>
+					</div>
+					<textarea id="ciphertext" class="code" rows="7" readonly spellcheck="false"></textarea>
+					<div data-notes-slot>
+						<fieldset class="field notes-options" data-notes-options>
+							<legend>Plain notes above the encrypted block</legend>
+							<label class="check"><input type="checkbox" data-note="instructions" checked /> Include unlock instructions</label>
+							<label class="check"><input type="checkbox" data-note="unlockTime" checked /> Include human-readable unlock time</label>
+							<p class="hint">Notes aren't encrypted, and anyone can edit them. Other tools need only the BEGIN…END block. <a href="/faq#notes">About notes</a></p>
+						</fieldset>
+					</div>
+					<div class="copy-preview">
+						<p class="copy-preview-title" id="copy-preview-title">Copy and Download give you exactly this</p>
+						<pre data-preview aria-labelledby="copy-preview-title" tabindex="0"></pre>
+					</div>
+					<div class="row result-actions">
+						<button class="btn" type="button" data-copy>Copy</button>
+						<button class="btn secondary" type="button" data-download>Download .age file</button>
+						<button class="btn secondary" type="button" data-to-decrypt><Icon name="arrowDown" />Paste into Decrypt below</button>
+					</div>
+					<p class="hint" data-keep-hint>Anyone with this text can read the message after the unlock time. Nobody can read it before then.</p>
+				</div>
+			</details>
+			<div class="row">
 				<button class="btn secondary" type="button" data-again>Encrypt another</button>
 			</div>
-			<p class="hint">Anyone with this text can read the message after the unlock time. Nobody can read it before then. We don't keep a copy, so save it somewhere safe.</p>
 		</div>
 	</div>
 </section>
@@ -361,9 +386,9 @@ const presets: [amount: number, unit: string, label: string][] = [
 	import { encrypt } from "../lib/tlock";
 	import { encryptedPanelHtml } from "../lib/status";
 	import { noteLines, withNotes } from "../lib/notes";
-	import { detectTimeZone, formatLocal, formatSpan, formatUtc, zonedParts } from "../lib/time";
+	import { detectTimeZone, formatFriendly, formatLocal, formatSpan, formatUtc, zonedParts } from "../lib/time";
 	import { addMonths, compareDays, dateTarget, durationTarget, MAX_LOCK_SECONDS, monthGrid, todayIn, timeZoneList, type Day, type Target } from "../lib/unlock";
-	import { reportEventOnce } from "../scripts/report";
+	import { EVENT_REPORTED, reportEventOnce } from "../scripts/report";
 
 	const form = document.querySelector<HTMLFormElement>("#encrypt-form")!;
 	const section = document.querySelector<HTMLElement>("#encrypt")!;
@@ -384,6 +409,15 @@ const presets: [amount: number, unit: string, label: string][] = [
 	let lockedRound = 0;
 	let resultHtml = "";
 	let armored = "";
+	let shareUrl = "";
+
+	/** Uploads the encrypted block (never the message) and returns its link. */
+	async function createLink(block: string): Promise<string> {
+		const res = await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ciphertext: block }) });
+		const body = (await res.json().catch(() => null)) as { url?: string; error?: { message?: string } } | null;
+		if (!res.ok || !body?.url) throw new Error(body?.error?.message ?? `The server answered ${res.status}.`);
+		return body.url;
+	}
 	let noteZone = browserZone;
 	let zone = browserZone;
 	let selected: Day | null = null;
@@ -512,8 +546,13 @@ const presets: [amount: number, unit: string, label: string][] = [
 	}
 
 	function renderResult() {
-		const html = encryptedPanelHtml(lockedUntil, lockedRound, Date.now());
+		const now = Date.now();
+		const html = encryptedPanelHtml(lockedUntil, lockedRound, now);
 		if (html !== resultHtml) $("[data-result-status]").innerHTML = resultHtml = html;
+		const left = (lockedUntil - now) / 1000;
+		const when = left > 0 ? `Opens ${formatFriendly(lockedUntil)}, in ${formatSpan(left)}.` : `Opened ${formatFriendly(lockedUntil)}.`;
+		const whenBox = $("[data-share-when]");
+		if (whenBox.textContent !== when) whenBox.textContent = when;
 	}
 
 	form.addEventListener("submit", async (event) => {
@@ -539,14 +578,33 @@ const presets: [amount: number, unit: string, label: string][] = [
 			lockedUntil = roundTime(round);
 			lockedRound = round;
 			noteZone = mode === "date" ? zone : browserZone;
+			shareUrl = "";
+			let hostError = "";
+			button.textContent = "Creating link…";
+			try {
+				shareUrl = await createLink(armored);
+			} catch (err) {
+				hostError = `No share link was created. ${err instanceof Error ? err.message : String(err)} Your message is still encrypted: copy the encrypted text below.`;
+			}
 			$<HTMLTextAreaElement>("#ciphertext").value = armored;
 			message.value = "";
-			$("[data-notes-slot]").appendChild(notesOptions);
+			$("[data-share-result]").hidden = !shareUrl;
+			$("[data-result-status]").hidden = !!shareUrl;
+			$<HTMLInputElement>("[data-share-url]").value = shareUrl;
+			$<HTMLAnchorElement>("[data-open-link]").href = shareUrl || "/";
+			$("[data-host-error]").textContent = hostError;
+			$("[data-host-error]").hidden = !hostError;
+			$<HTMLDetailsElement>("[data-cipher-details]").open = !shareUrl;
+			$("[data-keep-hint]").textContent = shareUrl
+				? "You don't need this if you use the link. It is the same encrypted text we stored, and it also opens in other tlock tools."
+				: "Anyone with this text can read the message after the unlock time. Nobody can read it before then. We don't keep a copy, so save it somewhere safe.";
 			form.hidden = true;
 			result.hidden = false;
 			renderResult();
 			renderPreview();
-			void reportEventOnce("encrypt", round, armored);
+			// A hosted message is recorded by the server when it stores the block; otherwise the browser reports the event.
+			if (shareUrl) window.dispatchEvent(new CustomEvent(EVENT_REPORTED));
+			else void reportEventOnce("encrypt", round, armored);
 		} catch (err) {
 			errorBox.textContent = `Encryption failed: ${err instanceof Error ? err.message : String(err)}`;
 			errorBox.hidden = false;
@@ -589,9 +647,17 @@ const presets: [amount: number, unit: string, label: string][] = [
 	$("[data-to-decrypt]").addEventListener("click", () => {
 		window.dispatchEvent(new CustomEvent("timelock:decrypt", { detail: ciphertext() }));
 	});
+	$("[data-copy-link]").addEventListener("click", (e) => copyWithFeedback(e.currentTarget as HTMLButtonElement, shareUrl));
+	$<HTMLInputElement>("[data-share-url]").addEventListener("focus", (e) => (e.currentTarget as HTMLInputElement).select());
+	if (typeof navigator.share === "function") {
+		const share = $("[data-share-link]");
+		share.hidden = false;
+		share.addEventListener("click", () => {
+			navigator.share({ title: "timelock.dev", text: `A message locked until ${formatFriendly(lockedUntil)}.`, url: shareUrl }).catch(() => {});
+		});
+	}
 	$("[data-again]").addEventListener("click", () => {
 		result.hidden = true;
-		form.insertBefore(notesOptions, $("[data-submit-row]"));
 		form.hidden = false;
 		lockedUntil = 0;
 		$<HTMLTextAreaElement>("#message").focus();

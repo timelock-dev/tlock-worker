@@ -7,6 +7,8 @@ This repository is the site and API, deployed as the `tlock-worker` Cloudflare W
 [tlock-worker](https://github.com/thibmeu/tlock-worker) and is now an Astro (TypeScript) app.
 
 - **Website:** encrypts and decrypts in the browser with [tlock-js](https://github.com/drand/tlock-js). Messages are not sent to the server.
+- **Share links:** the website uploads the encrypted block (never the message) and returns a page at `/m/<uuid>` with a
+  live countdown. At the unlock time the page decrypts in the reader's browser. Also available as `POST /api/messages`.
 - **JSON API:** `POST /api/encrypt` and `POST /api/decrypt` (server-side). Documentation is at [`/docs`](https://timelock.dev/docs).
 - **Original endpoints:** `POST /encrypt/:round` and `POST /decrypt` still accept and return raw bytes, as before.
 - **Recent activity:** the homepage lists the last 10 events and 30-day counts from an anonymous event log in Cloudflare D1 (type, timestamps,
@@ -75,6 +77,9 @@ src/lib/verify.ts     live drand check behind the header badge
 src/lib/time.ts       duration parsing/formatting, local + UTC formatting, relative times
 src/lib/api.ts        request handlers for every endpoint (framework-free, unit-tested)
 src/lib/events.ts     D1 queries for recent activity and 30-day stats
+src/lib/messages.ts   D1 queries for hosted messages (by id only; nothing lists them)
+src/lib/message-view.ts  countdown digits, link-preview text and other rendering for /m/<id>, shared by server and browser
+src/scripts/message.ts   the /m/<id> page: countdown on the server clock, then in-browser decryption
 src/lib/activity.ts   stats sentence and activity rows, shared by the server render and the browser refresh
 src/lib/unlock.ts     unlock-time picker logic: duration and date validation, calendar grid, time zones
 src/pages/            Astro pages (the homepage is server-rendered, the rest prerendered) and thin endpoint wrappers
@@ -86,7 +91,12 @@ patches/              tlock-js patch: Web Crypto randomness for workerd, no beac
 ## Privacy
 
 The event log stores the event type, server timestamp, drand round and unlock time, and nothing else: no plaintext, ciphertext, IP addresses or user
-agents. Workers observability logs are deliberately not enabled. The site loads no analytics or third-party scripts.
+agents.
+
+Share links store the armored ciphertext block, its SHA-256, the round, the time received and a count of reported decryptions. Plaintext is never
+sent to or stored by the server, and notes around a block are stripped before storing. The id is a random UUID, no query lists messages and nothing on the
+site links to them. Message pages may be indexed if a search engine finds a link that was posted publicly. Every `/m/` response carries
+`Referrer-Policy: no-referrer` and `Cache-Control: no-store` (set in `src/middleware.ts`), and the `/api/messages` JSON is `noindex`. Creating links is limited per IP by the `MESSAGE_LIMITER` rate limit binding and capped per day. Workers observability logs are deliberately not enabled. The site loads no analytics or third-party scripts.
 
 ## License
 

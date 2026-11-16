@@ -9,6 +9,7 @@ export function deps(context: APIContext): Deps {
 	return {
 		drand,
 		db: env.DB,
+		limiter: env.MESSAGE_LIMITER,
 		waitUntil: (p) => context.locals.cfContext.waitUntil(p),
 	};
 }

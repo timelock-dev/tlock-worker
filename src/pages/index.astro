@@ -24,18 +24,29 @@ if (env.DB) {
 }
 Astro.response.headers.set("Cache-Control", "no-cache");
 const maxYears = LIMITS.maxUnlockSeconds / (365 * 86400);
+const description =
+	"Lock a message until a time you pick and share it as a link with a live countdown. It is encrypted in your browser with drand timelock encryption, so nobody can read it early. Free, no account.";
+const jsonLd = {
+	"@context": "https://schema.org",
+	"@type": "WebApplication",
+	name: "timelock.dev",
+	url: "https://timelock.dev/",
+	description,
+	applicationCategory: "SecurityApplication",
+	operatingSystem: "Any",
+	browserRequirements: "Requires JavaScript",
+	isAccessibleForFree: true,
+	offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+};
 ---
 
-<Base
-	title="timelock.dev: send a message into the future"
-	description="Encrypt a message in your browser so that nobody can read it until a time you pick. Uses the drand network. No account needed."
->
+<Base title="timelock.dev: lock a message until a future time" description={description} jsonLd={jsonLd}>
 	<section class="hero">
 		<div class="container">
 			<h1>Send a message <span class="accent">into the future</span></h1>
 			<p class="lead">
-				Write a message and pick a time. Your browser encrypts it. Nobody can read it before that time, not even you or us. After that, anyone
-				with the encrypted text can read it.
+				Write a message and pick a time. Your browser encrypts it and you get a link with a countdown. Nobody can read it before that time, not
+				even you or us. After that, anyone with the link can.
 			</p>
 			<p class="hero-links">
 				<a href="#encrypt"><Icon name="lock" />Encrypt a message</a>
@@ -63,6 +74,16 @@ const maxYears = LIMITS.maxUnlockSeconds / (365 * 86400);
 					<li><Icon name="clock" /><span>Locks for up to <strong>{maxYears} years</strong></span></li>
 					<li><Icon name="pulse" /><span>A new drand key every <strong>{QUICKNET.period} seconds</strong></span></li>
 					<li><Icon name="shield" /><span>No account, no cookies, no analytics</span></li>
+					<li><Icon name="check" /><span>Share links store the <strong>encrypted text only</strong>, never your message</span></li>
+				</ul>
+			</section>
+			<section class="side-section">
+				<h2>What it's for</h2>
+				<ul class="facts">
+					<li><Icon name="check" /><span><a href="/faq#prove">Prove you knew something</a> before it happened</span></li>
+					<li><Icon name="clock" /><span>Predictions, reveals and embargoed news</span></li>
+					<li><Icon name="lock" /><span>Sealed bids and answers nobody can peek at</span></li>
+					<li><Icon name="book" /><span>A letter to your future self</span></li>
 				</ul>
 			</section>
 			<section class="side-section">

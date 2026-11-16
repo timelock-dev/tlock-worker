@@ -49,6 +49,12 @@
 		"ciphertexts",
 		"decrypter",
 		"unwrapper",
-		"SSWU"
+		"SSWU",
+		"unlisted",
+		"noindex",
+		"nofollow",
+		"noarchive",
+		"ratelimits",
+		"cqw"
 	]
 }

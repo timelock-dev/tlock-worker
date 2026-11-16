@@ -10,6 +10,18 @@ export function isApiPath(pathname: string): boolean {
 	return pathname.startsWith("/api/") || pathname.startsWith("/encrypt/") || pathname === "/decrypt";
 }
 
+/**
+ * Extra headers for hosted messages, or null for any other path.
+ * Pages (/m/<id>) may be indexed if a search engine finds the link, but never send their URL as a referrer and are never
+ * cached, because the countdown runs on the server clock. The JSON API for messages is kept out of search.
+ */
+export function messageHeaders(pathname: string): Record<string, string> | null {
+	const base = { "Referrer-Policy": "no-referrer", "Cache-Control": "no-store" };
+	if (pathname.startsWith("/m/")) return base;
+	if (pathname === "/api/messages" || pathname.startsWith("/api/messages/")) return { ...base, "X-Robots-Tag": "noindex" };
+	return null;
+}
+
 export type ErrorCode =
 	| "invalid_json"
 	| "invalid_request"
@@ -19,6 +31,8 @@ export type ErrorCode =
 	| "unsupported_chain"
 	| "too_early"
 	| "forbidden"
+	| "not_found"
+	| "rate_limited"
 	| "drand_unavailable"
 	| "feed_unavailable"
 	| "internal_error";

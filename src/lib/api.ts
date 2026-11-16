@@ -2,6 +2,7 @@ import type { ChainClient } from "drand-client";
 import { Buffer } from "tlock-js";
 import { DrandUnavailableError, QUICKNET, currentRound, roundForTime, roundTime } from "./drand";
 import { eventStats, listEvents, recordEvent, type EventsDb, type EventSource, type EventType } from "./events";
+import { DailyLimitError, MESSAGE_ID, createMessage, getMessage, markOpened, type StoredMessage } from "./messages";
 import { ApiError, errorJson, errorText, json, readBody, readJson } from "./http";
 import { noteLines, withNotes, type NoteOptions } from "./notes";
 import { parseDuration, parseTimestamp } from "./time";
@@ -12,6 +13,8 @@ import {
 	bytesToBinaryString,
 	decrypt,
 	encrypt,
+	extractArmor,
+	inspectCiphertext,
 } from "./tlock";
 
 export const LIMITS = {
@@ -24,13 +27,24 @@ export const LIMITS = {
 	/** How far ahead a message may be locked. */
 	maxUnlockSeconds: 100 * 365 * 86400,
 	feedPageSize: 100,
+	/** Hosted messages: size of the armored block we will store. */
+	hostedCiphertextBytes: 32 * 1024,
+	/** Hosted messages: new links per UTC day, across everyone. Bounds storage if someone floods the endpoint. */
+	hostedPerDay: 1000,
 } as const;
+
+/** The subset of Cloudflare's rate limit binding used here. */
+export interface RateLimiter {
+	limit(options: { key: string }): Promise<{ success: boolean }>;
+}
 
 export interface Deps {
 	drand: ChainClient;
 	db?: EventsDb;
 	waitUntil: (promise: Promise<unknown>) => void;
 	now?: () => number;
+	/** Per-IP limit on creating hosted messages. Optional so the app still runs without the binding. */
+	limiter?: RateLimiter;
 }
 
 const maxRound = (now: number) => roundForTime(now + LIMITS.maxUnlockSeconds * 1000);
@@ -264,6 +278,105 @@ export async function getEvents(url: URL, deps: Pick<Deps, "db">): Promise<Respo
 		const events = await listEvents(deps.db, { limit, before });
 		const nextBefore = events.length === limit ? events[events.length - 1].id : null;
 		return json({ events, nextBefore }, { headers: { "Cache-Control": "public, max-age=5" } });
+	} catch (err) {
+		return errorJson(toApiError(err));
+	}
+}
+
+/** A strictly formatted armored block: nothing but base64 between the BEGIN and END lines. */
+const ARMOR_BLOCK = /^-----BEGIN AGE ENCRYPTED FILE-----\n(?:[A-Za-z0-9+/]{1,64}={0,2}\n)+-----END AGE ENCRYPTED FILE-----\n$/;
+
+const iso = (ms: number) => new Date(ms).toISOString();
+
+const messageFields = (m: StoredMessage, origin: string) => ({
+	id: m.id,
+	url: `${origin}/m/${m.id}`,
+	...roundFields(m.round),
+	createdAt: iso(m.createdAt),
+	sha256: m.sha256,
+	openedAt: m.openedAt === null ? null : iso(m.openedAt),
+});
+
+const sameOrigin = (request: Request) => request.headers.get("Origin") === new URL(request.url).origin;
+
+/**
+ * POST /api/messages — stores an already-encrypted block and returns its link.
+ * Only the armored block is kept: notes around it are dropped, so no plain text is ever stored.
+ */
+export async function postMessage(request: Request, deps: Deps): Promise<Response> {
+	try {
+		if (!deps.db) throw new ApiError(503, "feed_unavailable", "Hosted messages are not configured.");
+		if (deps.limiter) {
+			const { success } = await deps.limiter.limit({ key: request.headers.get("CF-Connecting-IP") ?? "unknown" });
+			if (!success) throw new ApiError(429, "rate_limited", "Too many links created from this address. Wait a minute and try again.");
+		}
+		const body = await readJson(request, LIMITS.jsonBodyBytes);
+		if (typeof body.ciphertext !== "string" || !body.ciphertext.trim()) {
+			throw new ApiError(400, "invalid_request", "`ciphertext` must be a string containing an armored age block (-----BEGIN AGE ENCRYPTED FILE-----).");
+		}
+		const block = extractArmor(body.ciphertext)?.block;
+		if (!block || !ARMOR_BLOCK.test(block)) {
+			throw new ApiError(422, "invalid_ciphertext", "Only an armored age block (-----BEGIN AGE ENCRYPTED FILE-----) can be hosted.");
+		}
+		if (new TextEncoder().encode(block).byteLength > LIMITS.hostedCiphertextBytes) {
+			throw new ApiError(413, "payload_too_large", `Encrypted text exceeds the ${LIMITS.hostedCiphertextBytes.toLocaleString("en-US")} byte limit for hosted messages.`, {
+				limitBytes: LIMITS.hostedCiphertextBytes,
+			});
+		}
+		const info = inspectCiphertext(block);
+		if (info.chainHash !== QUICKNET.hash) {
+			throw new UnsupportedChainError(`Ciphertext targets drand chain ${info.chainHash}; only quicknet (${QUICKNET.hash}) is supported.`);
+		}
+		const now = (deps.now ?? Date.now)();
+		if (!Number.isSafeInteger(info.round) || info.round > maxRound(now)) {
+			throw new ApiError(400, "invalid_request", `Unlock time is too far ahead; the maximum is ${LIMITS.maxUnlockSeconds / (365 * 86400)} years.`);
+		}
+		if (info.round <= currentRound(now)) {
+			throw new ApiError(400, "invalid_request", "This message has already unlocked. Only messages that are still locked can be hosted.");
+		}
+		const web = sameOrigin(request);
+		const message = await createMessage(deps.db, {
+			ciphertext: block,
+			round: info.round,
+			unlockAt: roundTime(info.round),
+			source: web ? "web" : "api",
+			createdAt: now,
+			dailyLimit: LIMITS.hostedPerDay,
+			recordEncrypt: web,
+		});
+		return json(messageFields(message, new URL(request.url).origin), { status: 201 });
+	} catch (err) {
+		if (err instanceof DailyLimitError) return errorJson(new ApiError(429, "rate_limited", "The daily limit for new links has been reached. Try again tomorrow (UTC)."));
+		return errorJson(toApiError(err));
+	}
+}
+
+async function findMessage(deps: Pick<Deps, "db">, id: string | undefined): Promise<StoredMessage> {
+	if (!deps.db) throw new ApiError(503, "feed_unavailable", "Hosted messages are not configured.");
+	const message = id && MESSAGE_ID.test(id) ? await getMessage(deps.db, id) : null;
+	if (!message) throw new ApiError(404, "not_found", "No message with this id.");
+	return message;
+}
+
+/** GET /api/messages/:id — the stored block and its times. Works before and after the unlock time. */
+export async function getMessageJson(url: URL, id: string | undefined, deps: Pick<Deps, "db">): Promise<Response> {
+	try {
+		const message = await findMessage(deps, id);
+		return json({ ...messageFields(message, url.origin), ciphertext: message.ciphertext, chainHash: QUICKNET.hash, network: "quicknet" });
+	} catch (err) {
+		return errorJson(toApiError(err));
+	}
+}
+
+/** POST /api/messages/:id/opened — the message page reports that a browser decrypted it. Same-origin only. */
+export async function postMessageOpened(request: Request, id: string | undefined, deps: Deps): Promise<Response> {
+	try {
+		if (!sameOrigin(request)) throw new ApiError(403, "forbidden", "Only the timelock.dev website can report this.");
+		const message = await findMessage(deps, id);
+		const now = (deps.now ?? Date.now)();
+		if (message.unlockAt > now) throw new TooEarlyError(message.round, message.unlockAt);
+		await markOpened(deps.db!, message, now);
+		return new Response(null, { status: 204 });
 	} catch (err) {
 		return errorJson(toApiError(err));
 	}
