@@ -1,5 +1,0 @@
-# Hosted messages (/m/...) are not linked from the site or the sitemap, but they may be indexed if a link is posted publicly.
-User-agent: *
-Allow: /
-
-Sitemap: https://timelock.dev/sitemap.xml

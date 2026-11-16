@@ -1,9 +1,0 @@
-.DS_Store
-node_modules/
-dist/
-.astro/
-.wrangler/
-.dev.vars*
-.env
-.env.production
-npm-debug.log*
